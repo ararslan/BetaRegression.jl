@@ -1,0 +1,27 @@
+name = "BetaRegression"
+uuid = "2339b9c3-daaf-4eaa-90d5-e8471159c344"
+version = "0.1.0"
+
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+GLM = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+LogExpFunctions = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+StatsAPI = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+
+[compat]
+Distributions = "0.25"
+GLM = "1"
+LogExpFunctions = "0.3"
+SpecialFunctions = "1, 2"
+StatsAPI = "1"
+StatsBase = "0.33"
+julia = "1.6"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
