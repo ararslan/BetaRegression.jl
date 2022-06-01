@@ -1,7 +1,11 @@
 using BetaRegression
+using GLM
 using StatsBase
 using StatsModels
 using Test
+
+using GLM: linkinv
+using BetaRegression: 🐟, dmueta
 
 @testset "Basics" begin
     @test_throws ArgumentError BetaRegressionModel([1 2 3; 4 5 6], [1, 2])
@@ -76,6 +80,9 @@ end
     @test Link(model) == LogitLink()
     @test isempty(weights(model))
     @test informationmatrix(model) \ score(model) ≈ zeros(4) atol=1e-6
+    for expected in false:true
+        @test inv(informationmatrix(model; expected)) ≈ 🐟(model.model, expected, true) atol=1e-10
+    end
 end
 
 @testset "Example: Prater's gasoline data (Ferrari table 1)" begin
@@ -120,4 +127,13 @@ end
     @test dispersion(model) ≈ 440.27838 atol=1e-5
     @test stderror(model) ≈ [0.18232, 0.10123, 0.11790, 0.11610, 0.10236, 0.10352,
                              0.10604, 0.10913, 0.10893, 0.11859, 0.00041, 110.02562] atol=1e-4
+end
+
+@testset "dmueta" begin
+    centraldiff(f, x, h=0.001) = (f(x + h) - 2 * f(x) + f(x - h)) / h^2
+    centraldiff(link::Link, x, h=0.001) = centraldiff(η -> linkinv(link, η), x, h)
+    x = range(0, 1; step=0.001)
+    @testset "$L" for L in [CauchitLink, CloglogLink, LogitLink, ProbitLink]
+        @test dmueta.(L(), x) ≈ centraldiff.(L(), x) atol=1e-5
+    end
 end
