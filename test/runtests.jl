@@ -1,19 +1,7 @@
 using BetaRegression
 using StatsBase
+using StatsModels
 using Test
-
-#=
-library(betareg)
-
-data <- read.table("~/Downloads/betareg_example/pratergrouped.mat",
-                   skip=1, header=FALSE)
-data <- data[, -(1:4)]
-names(data) <- c(paste0("x", 2:ncol(data)), "y")
-data$y <- data$y / 100
-
-fit <- betareg(y ~ ., data=data, link="logit", type="ML")
-sqrt(diag(vcov(fit)))
-=#
 
 @testset "Basics" begin
     @test_throws ArgumentError BetaRegressionModel([1 2 3; 4 5 6], [1, 2])
@@ -79,12 +67,15 @@ end
              9.550 40.573 4
             23.066 44.872 6
             14.751 27.167 7]
-    y = food[:, 1] ./ food[:, 2]
-    X = hcat(ones(size(food, 1)), food[:, 2:end])
-    model = fit(BetaRegressionModel, X, y)
+    data = (; income=food[:, 2], people=food[:, 3], food=(food[:, 1] ./ food[:, 2]))
+    model = fit(BetaRegressionModel, @formula(food ~ 1 + income + people), data)
+    @test responsename(model) == "food"
     @test coef(model) ≈ [-0.62255, -0.01230, 0.11846] atol=1e-5
     @test dispersion(model) ≈ 35.60975 atol=1e-5
     @test stderror(model) ≈ [0.22385, 0.00304, 0.03534, 8.07960] atol=1e-5
+    @test Link(model) == LogitLink()
+    @test isempty(weights(model))
+    @test informationmatrix(model) \ score(model) ≈ zeros(4) atol=1e-6
 end
 
 @testset "Example: Prater's gasoline data (Ferrari table 1)" begin

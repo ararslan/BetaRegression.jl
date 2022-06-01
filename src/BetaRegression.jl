@@ -8,10 +8,12 @@ using LogExpFunctions
 using SpecialFunctions
 using StatsAPI
 using StatsBase
+using StatsModels
 
-using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv, mueta  # unexported
+using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv, mueta  # not exported
 using LinearAlgebra: dot  # shadow the one from BLAS
 using StatsAPI: meanresponse, params  # not exported nor reexported from elsewhere
+using StatsModels: TableRegressionModel, @delegate, termvars  # not exported
 
 export
     BetaRegressionModel,
@@ -323,12 +325,23 @@ function StatsAPI.fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8
     throw(ConvergenceException(maxiter))
 end
 
-function StatsAPI.fit(::Type{BetaRegressionModel}, X, y, link=LogitLink();
-                      weights=nothing, offset=nothing, maxiter=100, atol=1e-8,
-                      rtol=1e-8)
+function StatsAPI.fit(::Type{BetaRegressionModel}, X::AbstractMatrix, y::AbstractVector,
+                      link=LogitLink(); weights=nothing, offset=nothing, maxiter=100,
+                      atol=1e-8, rtol=1e-8)
     b = BetaRegressionModel(X, y, link; weights, offset)
     fit!(b; maxiter, atol, rtol)
     return b
+end
+
+# TODO: Move the StatsAPI extensions to the delegations that happen in StatsModels itself
+@delegate(TableRegressionModel{<:BetaRegressionModel}.model,
+          [GLM.Link, GLM.dispersion, GLM.linpred, StatsAPI.meanresponse,
+           StatsAPI.informationmatrix, StatsAPI.score, StatsAPI.weights])
+
+function StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel})
+    lhs = formula(m).lhs
+    y = only(termvars(lhs))
+    return String(y)
 end
 
 """

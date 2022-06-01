@@ -15,7 +15,6 @@ Note however that the interface and/or underlying implementation details may cha
 significantly prior to an initial release.
 
 Still to do:
-- Integration with StatsModels for passing `@formula`s to `fit`
 - `coeftable` with Wald statistics
 - Better tests and documentation
 
