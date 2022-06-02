@@ -13,6 +13,8 @@ using BetaRegression: 🐟, dmueta
     @test_throws ArgumentError BetaRegressionModel([1 2; 3 4; 5 6], [1, 2, 3])
     @test_throws ArgumentError BetaRegressionModel([1 2; 3 4; 5 6], [0.1, 0.2, 0.3];
                                                    weights=[1])
+    @test_throws ArgumentError BetaRegressionModel([1 2; 3 4; 5 6], [0.1, 0.2, 0.3];
+                                                   offset=[1])
     X = [1 2; 3 4; 5 6]
     y = [0.1, 0.2, 0.3]
     b = BetaRegressionModel(X, y, CauchitLink())
@@ -93,6 +95,9 @@ end
                             -0.01824848 -0.006349204
                              0.04919566  0.187728532
                             19.77402875 51.445471904] atol=1e-8
+    model_with_offset = fit(BetaRegressionModel, formula(model), data; offset=ones(nobs(model)))
+    @test first(coef(model_with_offset)) ≈ first(coef(model)) - 1 atol=1e-8
+    @test coef(model_with_offset)[2:end] ≈ coef(model)[2:end] atol=1e-8
 end
 
 @testset "Example: Prater's gasoline data (Ferrari table 1)" begin
