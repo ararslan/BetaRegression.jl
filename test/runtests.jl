@@ -74,6 +74,7 @@ end
     data = (; income=food[:, 2], people=food[:, 3], food=(food[:, 1] ./ food[:, 2]))
     model = fit(BetaRegressionModel, @formula(food ~ 1 + income + people), data)
     @test responsename(model) == "food"
+    @test coefnames(model) == ["(Intercept)", "income", "people", "(Dispersion)"]
     @test coef(model) ≈ [-0.62255, -0.01230, 0.11846] atol=1e-5
     @test dispersion(model) ≈ 35.60975 atol=1e-5
     @test stderror(model) ≈ [0.22385, 0.00304, 0.03534, 8.07960] atol=1e-5
@@ -83,6 +84,15 @@ end
     for expected in false:true
         @test inv(informationmatrix(model; expected)) ≈ 🐟(model.model, expected, true) atol=1e-10
     end
+    ct = coeftable(model)
+    @test ct isa CoefTable
+    @test ct.rownms == coefnames(model)
+    @test ct.colnms == ["Coef.", "Std. Error", "z", "Pr(>|z|)", "Lower 95%", "Upper 95%"]
+    @test all(<(0.05), ct.cols[ct.pvalcol])  # Significant! Time to publish!
+    @test confint(model) ≈ [-1.06129293 -0.183803181
+                            -0.01824848 -0.006349204
+                             0.04919566  0.187728532
+                            19.77402875 51.445471904] atol=1e-8
 end
 
 @testset "Example: Prater's gasoline data (Ferrari table 1)" begin

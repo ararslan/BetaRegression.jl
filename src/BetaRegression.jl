@@ -129,6 +129,26 @@ StatsAPI.nobs(b::BetaRegressionModel) =
 
 GLM.Link(b::BetaRegressionModel{T,L}) where {T,L} = L()
 
+function StatsAPI.coeftable(b::BetaRegressionModel; level::Real=0.95)
+    θ = params(b)
+    se = stderror(b)
+    z = θ ./ se
+    p = 2 * ccdf.(Normal(), abs.(z))
+    ci = confint(b; level)
+    level *= 100
+    s = string(isinteger(level) ? trunc(Int, level) : level)
+    return CoefTable(hcat(θ, se, z, p, ci),
+                     ["Coef.", "Std. Error", "z", "Pr(>|z|)", "Lower $s%", "Upper $s%"],
+                     push!(map(i -> "x$i", 1:(length(θ) - 1)), "(Dispersion)"), 4, 3)
+end
+
+function StatsAPI.confint(b::BetaRegressionModel; level::Real=0.95)
+    θ = params(b)
+    se = stderror(b)
+    side = se .* quantile(Normal(), (1 - level) / 2)
+    return hcat(θ .+ side, θ .- side)
+end
+
 function StatsAPI.loglikelihood(b::BetaRegressionModel)
     y = response(b)
     μ = meanresponse(b)
@@ -342,6 +362,20 @@ function StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel})
     lhs = formula(m).lhs
     y = only(termvars(lhs))
     return String(y)
+end
+
+function StatsAPI.coefnames(m::TableRegressionModel{<:BetaRegressionModel})
+    names = coefnames(m.mf)
+    return vcat(names, "(Dispersion)")
+end
+
+# Define a more specific method than the one in StatsModels since that one calls
+# `coeftable` on the model's `ModelFrame` directly and that will have too few
+# coefficients
+function StatsAPI.coeftable(m::TableRegressionModel{<:BetaRegressionModel}; kwargs...)
+    ct = coeftable(m.model; kwargs...)
+    ct.rownms = coefnames(m)
+    return ct
 end
 
 """

@@ -15,7 +15,6 @@ Note however that the interface and/or underlying implementation details may cha
 significantly prior to an initial release.
 
 Still to do:
-- `coeftable` with Wald statistics
 - Better tests and documentation
 
 <sup>[1]</sup>Silvia Ferrari & Francisco Cribari-Neto (2004) Beta Regression for Modelling
