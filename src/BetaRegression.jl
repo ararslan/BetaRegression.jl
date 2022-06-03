@@ -13,7 +13,7 @@ using StatsModels
 using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv, mueta  # not exported
 using LinearAlgebra: dot  # shadow the one from BLAS
 using StatsAPI: meanresponse, params  # not exported nor reexported from elsewhere
-using StatsModels: TableRegressionModel, @delegate, termvars  # not exported
+using StatsModels: TableRegressionModel, @delegate  # not exported
 
 export
     BetaRegressionModel,
@@ -364,11 +364,8 @@ end
           [GLM.Link, GLM.dispersion, GLM.linpred, StatsAPI.meanresponse,
            StatsAPI.informationmatrix, StatsAPI.score, StatsAPI.weights])
 
-function StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel})
-    lhs = formula(m).lhs
-    y = only(termvars(lhs))
-    return String(y)
-end
+StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel}) =
+    sprint(show, formula(m).lhs)
 
 function StatsAPI.coefnames(m::TableRegressionModel{<:BetaRegressionModel})
     names = coefnames(m.mf)
