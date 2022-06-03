@@ -96,6 +96,8 @@ end
                              0.04919566  0.187728532
                             19.77402875 51.445471904] atol=1e-8
     @test loglikelihood(model) ≈ 45.33351 atol=1e-5
+    @test dof(model) == 4
+    @test dof_residual(model) == 34
     model_with_offset = fit(BetaRegressionModel, formula(model), data; offset=ones(nobs(model)))
     @test first(coef(model_with_offset)) ≈ first(coef(model)) - 1 atol=1e-8
     @test coef(model_with_offset)[2:end] ≈ coef(model)[2:end] atol=1e-8

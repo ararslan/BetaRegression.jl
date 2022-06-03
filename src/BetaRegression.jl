@@ -28,6 +28,8 @@ export
     linpred,
     # Extensions from StatsAPI:
     coef,
+    dof,
+    dof_residual,
     fit!,
     fit,
     informationmatrix,
@@ -126,6 +128,10 @@ StatsAPI.meanresponse(b::BetaRegressionModel, η=linpred(b)) = linkinv.(Link(b),
 
 StatsAPI.nobs(b::BetaRegressionModel) =
     isempty(weights(b)) ? length(response(b)) : count(>(0), weights(b))
+
+StatsAPI.dof(b::BetaRegressionModel) = length(params(b))
+
+StatsAPI.dof_residual(b::BetaRegressionModel) = nobs(b) - dof(b)
 
 GLM.Link(b::BetaRegressionModel{T,L}) where {T,L} = L()
 
