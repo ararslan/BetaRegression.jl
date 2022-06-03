@@ -25,6 +25,7 @@ using BetaRegression: 🐟, dmueta
     @test nobs(b) == 3
     @test coef(b) == [0, 0]
     @test dispersion(b) == 0
+    @test_throws ConvergenceException fit!(b; maxiter=0)
     fit!(b)
     @test coef(b) != [0, 0]
     @test dispersion(b) > 0
