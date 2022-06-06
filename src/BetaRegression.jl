@@ -12,7 +12,7 @@ using StatsModels
 
 using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv, mueta  # not exported
 using LinearAlgebra: dot  # shadow the one from BLAS
-using StatsAPI: meanresponse, params  # not exported nor reexported from elsewhere
+using StatsAPI: meanresponse, offset, params  # not exported nor reexported from elsewhere
 using StatsModels: TableRegressionModel, @delegate  # not exported
 
 export
@@ -37,6 +37,7 @@ export
     meanresponse,
     modelmatrix,
     nobs,
+    offset,
     response,
     score,
     vcov,
@@ -108,6 +109,8 @@ StatsAPI.modelmatrix(b::BetaRegressionModel) = b.X
 
 StatsAPI.weights(b::BetaRegressionModel) = b.weights
 
+StatsAPI.offset(b::BetaRegressionModel) = b.offset
+
 StatsAPI.params(b::BetaRegressionModel) = b.parameters
 
 StatsAPI.coef(b::BetaRegressionModel) = params(b)[1:(end - 1)]
@@ -118,8 +121,8 @@ function GLM.linpred(b::BetaRegressionModel)
     X = modelmatrix(b)
     β = coef(b)
     η = X * β
-    if !isempty(b.offset)
-        η .+= b.offset
+    if !isempty(offset(b))
+        η .+= offset(b)
     end
     return η
 end
@@ -184,7 +187,7 @@ function StatsAPI.loglikelihood(b::BetaRegressionModel, i::Integer)
     y = response(b)
     @boundscheck checkbounds(y, i)
     η = dot(view(modelmatrix(b), i, :), coef(b))
-    isempty(b.offset) || (η += b.offset[i])
+    isempty(offset(b)) || (η += offset(b)[i])
     μ = linkinv(Link(b), η)
     ϕ = dispersion(b)
     ℓ = logpdf(Beta(μ * ϕ, (1 - μ) * ϕ), y[i])
@@ -200,7 +203,7 @@ function initialize!(b::BetaRegressionModel)
     y = linkfun.(link, response(b))
     # We have to use the constructors directly because `LinearModel` supports an
     # offset but it isn't exposed by `lm`
-    model = LinearModel(LmResp{typeof(y)}(zero(y), b.offset, weights(b), y),
+    model = LinearModel(LmResp{typeof(y)}(zero(y), offset(b), weights(b), y),
                         cholpred(X, true))
     fit!(model)
     β = coef(model)
