@@ -130,6 +130,10 @@ end
                              -0.2402128,   1.515325,   0.8997969,   0.1262185, -0.1176242,
                              -1.374193,    1.549423,   0.8918376] atol=1e-5
     @test deviance(model) ≈ 37.18054 atol=1e-5
+    @test vcov(model) ≈ [ 0.0501104   -0.000519915 -0.00462328 -0.0343372
+                         -0.000519915  9.21477e-6  -2.46623e-7 -0.000933215
+                         -0.00462328  -2.46623e-7   0.00124896  0.00894725
+                         -0.0343372   -0.000933215  0.00894725 65.2799] atol=1e-5
     model_with_offset = fit(BetaRegressionModel, formula(model), data; offset=ones(nobs(model)))
     @test first(coef(model_with_offset)) ≈ first(coef(model)) - 1 atol=1e-8
     @test coef(model_with_offset)[2:end] ≈ coef(model)[2:end] atol=1e-8
