@@ -10,10 +10,14 @@ using StatsAPI
 using StatsBase
 using StatsModels
 
-using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv, mueta  # not exported
-using LinearAlgebra: dot  # shadow the one from BLAS
-using StatsAPI: meanresponse, offset, params  # not exported nor reexported from elsewhere
-using StatsModels: TableRegressionModel, @delegate  # not exported
+# Necessary stuff that isn't exported from dependencies
+using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv,
+           linpred!, mueta
+using StatsAPI: meanresponse, offset, params
+using StatsModels: TableRegressionModel, @delegate
+
+# Manual binding conflict resolution
+using LinearAlgebra: dot  # shadow `BLAS.dot`
 
 export
     BetaRegressionModel,
@@ -60,8 +64,8 @@ struct BetaRegressionModel{T<:AbstractFloat,L<:Link01,V<:AbstractVector{T},
     weights::Vector{T}
     offset::Vector{T}
     parameters::Vector{T}
+    linearpredictor::Vector{T}
 end
-# TODO: Should probably store `η` in the model object too
 
 """
     BetaRegressionModel(X, y, link=LogitLink(); weights=nothing, offset=nothing)
@@ -97,10 +101,11 @@ function BetaRegressionModel(X::AbstractMatrix, y::AbstractVector,
         no == 0 || no == n || throw(ArgumentError("offset must be empty or have length $n"))
     end
     parameters = zeros(T, p + 1)
+    η = Vector{T}(undef, n)
     _X = convert(AbstractMatrix{T}, X)
     _y = convert(AbstractVector{T}, y)
     return BetaRegressionModel{T,typeof(link),typeof(_y),typeof(_X)}(y, X, weights, offset,
-                                                                     parameters)
+                                                                     parameters, η)
 end
 
 StatsAPI.response(b::BetaRegressionModel) = b.y
@@ -117,12 +122,17 @@ StatsAPI.coef(b::BetaRegressionModel) = params(b)[1:(end - 1)]
 
 GLM.dispersion(b::BetaRegressionModel) = params(b)[end]
 
-function GLM.linpred(b::BetaRegressionModel)
+GLM.linpred(b::BetaRegressionModel) = b.linearpredictor
+
+function GLM.linpred!(b::BetaRegressionModel)
     X = modelmatrix(b)
     β = coef(b)
-    η = X * β
-    if !isempty(offset(b))
-        η .+= offset(b)
+    η = linpred(b)
+    if isempty(offset(b))
+        mul!(η, X, β)
+    else
+        copyto!(η, offset(b))
+        mul!(η, X, β, true, true)
     end
     return η
 end
@@ -186,8 +196,7 @@ end
 function StatsAPI.loglikelihood(b::BetaRegressionModel, i::Integer)
     y = response(b)
     @boundscheck checkbounds(y, i)
-    η = dot(view(modelmatrix(b), i, :), coef(b))
-    isempty(offset(b)) || (η += offset(b)[i])
+    η = linpred(b)[i]
     μ = linkinv(Link(b), η)
     ϕ = dispersion(b)
     ℓ = logpdf(Beta(μ * ϕ, (1 - μ) * ϕ), y[i])
@@ -214,7 +223,8 @@ function initialize!(b::BetaRegressionModel)
     k = length(β)
     σ² = sum(abs2, e) .* abs2.(mueta.(link, η)) ./ (n .- k)
     ϕ = mean(i -> μ[i] * (1 - μ[i]) / σ²[i] - 1, eachindex(μ, σ²))
-    copyto!(b.parameters, push!(β, ϕ))
+    copyto!(params(b), push!(β, ϕ))
+    copyto!(linpred(b), η)
     return b
 end
 
@@ -227,6 +237,7 @@ function StatsAPI.score(b::BetaRegressionModel)
     ψϕ = digamma(ϕ)
     ∂β = zero(coef(b))
     ∂ϕ = zero(ψϕ)
+    Tr = copy(η)
     for i in eachindex(y, η)
         ηᵢ = η[i]
         μᵢ = linkinv(link, ηᵢ)
@@ -234,9 +245,9 @@ function StatsAPI.score(b::BetaRegressionModel)
         a = digamma((1 - μᵢ) * ϕ)
         r = logit(yᵢ) - digamma(μᵢ * ϕ) + a
         ∂ϕ += μᵢ * r + log(1 - yᵢ) - a + ψϕ
-        η[i] = ϕ * r * mueta(link, ηᵢ)  # reusing `η` as scratch space
+        Tr[i] = ϕ * r * mueta(link, ηᵢ)
     end
-    mul!(∂β, X', η)
+    mul!(∂β, X', Tr)
     return push!(∂β, ∂ϕ)
 end
 
@@ -350,6 +361,7 @@ function StatsAPI.fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8
         K = 🐟(b, true, true)
         checkfinite(K, iter)
         mul!(params(b), K, U, true, true)
+        linpred!(b)
     end
     throw(ConvergenceException(maxiter))
 end
@@ -370,10 +382,8 @@ end
 StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel}) =
     sprint(show, formula(m).lhs)
 
-function StatsAPI.coefnames(m::TableRegressionModel{<:BetaRegressionModel})
-    names = coefnames(m.mf)
-    return vcat(names, "(Dispersion)")
-end
+StatsAPI.coefnames(m::TableRegressionModel{<:BetaRegressionModel}) =
+    vcat(coefnames(m.mf), "(Dispersion)")
 
 # Define a more specific method than the one in StatsModels since that one calls
 # `coeftable` on the model's `ModelFrame` directly and that will have too few
