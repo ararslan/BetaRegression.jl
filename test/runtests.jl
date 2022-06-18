@@ -7,6 +7,10 @@ using Test
 using GLM: linkinv
 using BetaRegression: 🐟, dmueta
 
+# NOTE: Where it makes sense (and is possible) to do so, values are tested against
+# `betareg(formula, data, link="logit", link.phi="identity", type="ML")` in R with
+# an absolute tolerance of 1e-5 or better
+
 @testset "Basics" begin
     @test_throws ArgumentError BetaRegressionModel([1 2 3; 4 5 6], [1, 2])
     @test_throws DimensionMismatch BetaRegressionModel([1 2; 3 4; 5 6], [1, 2])
@@ -101,6 +105,31 @@ end
     @test sum(loglikelihood(model, :)) ≈ loglikelihood(model) atol=1e-10
     @test dof(model) == 4
     @test dof_residual(model) == 34
+    @test fitted(model) ≈ [0.218835,  0.2606715, 0.234042,  0.3211104, 0.3044348,
+                           0.327484,  0.2368291, 0.1717485, 0.186823,  0.2970203,
+                           0.3315132, 0.2286988, 0.2797998, 0.1982583, 0.2682745,
+                           0.3557506, 0.2412363, 0.2954333, 0.3417903, 0.2645057,
+                           0.3395886, 0.3260284, 0.2511916, 0.279832,  0.3160853,
+                           0.2429898, 0.1797033, 0.2830605, 0.3455576, 0.413664,
+                           0.2681488, 0.2315554, 0.2831051, 0.3223771, 0.3652001,
+                           0.3435079, 0.3861205, 0.4681841] atol=1e-5
+    @test residuals(model) ≈ [ 0.03723132,  -0.05834841,  0.05708404,  -0.1313068,   -0.1425011,
+                               0.04080833,   0.0431882,   0.03502668,  -0.02632745,  -0.06895467,
+                              -0.1393988,    0.02549582,  0.02178853,   0.05877201,   0.02316252,
+                               0.006746076, -0.01468414,  0.01317129,   0.02871633,  -0.1569799,
+                              -0.0089861,   -0.06694573, -0.001006331, -0.04105034,   0.09833504,
+                              -0.06471616,   0.0453631,  -0.02000852,   0.01967581,   0.147579,
+                              -0.02575824,   0.1103211,   0.06546472,   0.006098814, -0.01432701,
+                              -0.1081297,    0.1279194,   0.07479088] atol=1e-5
+    @test devresid(model) ≈ [ 0.615805,   -0.7227725,  0.8551208,  -1.765633,  -1.999315,
+                              0.5614324,   0.6729245,  0.6522058,  -0.227531,  -0.853578,
+                             -1.870453,    0.4459616,  0.3559293,   0.9325464,  0.3819149,
+                              0.1243324,  -0.03998864, 0.2334174,   0.4051461, -2.468176,
+                             -0.02544287, -0.8080014, -0.05045462, -0.4610732,  1.25752,
+                             -0.8383246,   0.7847574, -0.1597831,   0.2920577,  1.770506,
+                             -0.2402128,   1.515325,   0.8997969,   0.1262185, -0.1176242,
+                             -1.374193,    1.549423,   0.8918376] atol=1e-5
+    @test deviance(model) ≈ 37.18054 atol=1e-5
     model_with_offset = fit(BetaRegressionModel, formula(model), data; offset=ones(nobs(model)))
     @test first(coef(model_with_offset)) ≈ first(coef(model)) - 1 atol=1e-8
     @test coef(model_with_offset)[2:end] ≈ coef(model)[2:end] atol=1e-8

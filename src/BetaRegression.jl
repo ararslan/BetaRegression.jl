@@ -13,7 +13,7 @@ using StatsModels
 # Necessary stuff that isn't exported from dependencies
 using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv,
            linpred!, mueta
-using StatsAPI: meanresponse, offset, params
+using StatsAPI: offset, params
 using StatsModels: TableRegressionModel, @delegate
 
 # Manual binding conflict resolution
@@ -32,16 +32,19 @@ export
     linpred,
     # Extensions from StatsAPI:
     coef,
+    deviance,
+    devresid,
     dof,
     dof_residual,
     fit!,
     fit,
+    fitted,
     informationmatrix,
     loglikelihood,
-    meanresponse,
     modelmatrix,
     nobs,
     offset,
+    residuals,
     response,
     score,
     vcov,
@@ -137,7 +140,9 @@ function GLM.linpred!(b::BetaRegressionModel)
     return η
 end
 
-StatsAPI.meanresponse(b::BetaRegressionModel, η=linpred(b)) = linkinv.(Link(b), η)
+StatsAPI.fitted(b::BetaRegressionModel) = linkinv.(Link(b), linpred(b))
+
+StatsAPI.residuals(b::BetaRegressionModel) = response(b) .- fitted(b)
 
 StatsAPI.nobs(b::BetaRegressionModel) =
     isempty(weights(b)) ? length(response(b)) : count(>(0), weights(b))
@@ -168,28 +173,29 @@ function StatsAPI.confint(b::BetaRegressionModel; level::Real=0.95)
     return hcat(θ .+ side, θ .- side)
 end
 
+betalogpdf(μ, ϕ, y) = logpdf(Beta(μ * ϕ, (1 - μ) * ϕ), y)
+
 function StatsAPI.loglikelihood(b::BetaRegressionModel)
     y = response(b)
-    μ = meanresponse(b)
+    μ = fitted(b)
     ϕ = dispersion(b)
     w = weights(b)
     if isempty(w)
-        return sum(i -> logpdf(Beta(μ[i] * ϕ, (1 - μ[i]) * ϕ), y[i]), eachindex(y, μ))
+        return sum(i -> betalogpdf(μ[i], ϕ, y[i]), eachindex(y, μ))
     else
-        return sum(i -> w[i] * logpdf(Beta(μ[i] * ϕ, (1 - μ[i]) * ϕ), y[i]),
-                   eachindex(y, μ, w))
+        return sum(i -> w[i] * betalogpdf(μ[i], ϕ, y[i]), eachindex(y, μ, w))
     end
 end
 
 function StatsAPI.loglikelihood(b::BetaRegressionModel, ::Colon)
     y = response(b)
-    μ = meanresponse(b)
+    μ = fitted(b)
     ϕ = dispersion(b)
     w = weights(b)
     if isempty(w)
-        return map((yᵢ, μᵢ) -> logpdf(Beta(μᵢ * ϕ, (1 - μᵢ) * ϕ), yᵢ), y, μ)
+        return map((yᵢ, μᵢ) -> betalogpdf(μᵢ, ϕ, yᵢ), y, μ)
     else
-        return map((yᵢ, μᵢ, wᵢ) -> wᵢ * logpdf(Beta(μᵢ * ϕ, (1 - μᵢ) * ϕ), yᵢ), y, μ, w)
+        return map((yᵢ, μᵢ, wᵢ) -> wᵢ * betalogpdf(μᵢ, ϕ, yᵢ), y, μ, w)
     end
 end
 
@@ -199,10 +205,22 @@ function StatsAPI.loglikelihood(b::BetaRegressionModel, i::Integer)
     η = linpred(b)[i]
     μ = linkinv(Link(b), η)
     ϕ = dispersion(b)
-    ℓ = logpdf(Beta(μ * ϕ, (1 - μ) * ϕ), y[i])
+    ℓ = betalogpdf(μ, ϕ, y[i])
     isempty(weights(b)) || (ℓ *= weights(b)[i])
     return ℓ
 end
+
+function GLM.devresid(b::BetaRegressionModel)
+    ϕ = dispersion(b)
+    return map(response(b), fitted(b)) do y, μ
+        r = y - μ
+        ℓ₁ = betalogpdf(y, ϕ, y)
+        ℓ₂ = betalogpdf(μ, ϕ, y)
+        return sign(r) * sqrt(2 * abs(ℓ₁ - ℓ₂))
+    end
+end
+
+StatsAPI.deviance(b::BetaRegressionModel) = sum(abs2, devresid(b))
 
 # Initialize the coefficients based on the recommendations at the end of section 2:
 # perform an OLS regression on g(y)
@@ -376,8 +394,8 @@ end
 
 # TODO: Move the StatsAPI extensions to the delegations that happen in StatsModels itself
 @delegate(TableRegressionModel{<:BetaRegressionModel}.model,
-          [GLM.Link, GLM.dispersion, GLM.linpred, StatsAPI.meanresponse,
-           StatsAPI.informationmatrix, StatsAPI.score, StatsAPI.weights])
+          [GLM.Link, GLM.devresid, GLM.dispersion, GLM.linpred, StatsAPI.informationmatrix,
+           StatsAPI.score, StatsAPI.weights])
 
 StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel}) =
     sprint(show, formula(m).lhs)
