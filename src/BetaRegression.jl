@@ -16,9 +16,6 @@ using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv,
 using StatsAPI: offset, params
 using StatsModels: TableRegressionModel, @delegate
 
-# Manual binding conflict resolution
-using LinearAlgebra: dot  # shadow `BLAS.dot`
-
 export
     BetaRegressionModel,
     # Extensions/utilities from GLM:
@@ -44,6 +41,7 @@ export
     modelmatrix,
     nobs,
     offset,
+    params,
     residuals,
     response,
     score,
