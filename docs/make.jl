@@ -10,4 +10,4 @@ makedocs(; modules=[BetaRegression],
                 "API" => "api.md"],
          format=HTML(; prettyurls=(get(ENV, "CI", "false") == "true")))
 
-#deploydocs(; repo="github.com/ararslan/BetaRegression.jl.git")
+deploydocs(; repo="github.com/ararslan/BetaRegression.jl.git")
