@@ -23,6 +23,9 @@ fit!
 The following common functions are extended for beta regression models:
 - `Link`: The model's link function
 - `coef`: The vector ``\boldsymbol{\beta}`` of regression coefficients
+- `coefnames`: Names of the coefficients (for models fit with a formula and table)
+- `coeftable`: Table of coefficient names, values, standard errors, z-values, and p-values
+- `confint`: Confidence intervals for the coefficient estimates
 - `deviance`: Model deviance
 - `devresid`: Vector of deviance residuals
 - `dispersion`: The estimated dispersion parameter ``\phi``
@@ -38,7 +41,9 @@ The following common functions are extended for beta regression models:
 - `params`: All parameters from the model, including both ``\boldsymbol{\beta}`` and ``\phi``
 - `residuals`: Vector of residuals
 - `response`: The response vector ``\boldsymbol{y}``
+- `responsename`: Name of the response variable (for models fit with a formula and table)
 - `score`: Score vector
+- `stderror`: Standard errors of the coefficient and dispersion estimates
 - `vcov`: Variance-covariance matrix
 - `weights`: Model weights, empty if the model was not fit with weights
 

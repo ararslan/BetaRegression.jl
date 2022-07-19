@@ -31,6 +31,9 @@ export
     @formula,
     # Extensions from StatsAPI:
     coef,
+    coefnames,
+    coeftable,
+    confint,
     deviance,
     devresid,
     dof,
@@ -46,7 +49,9 @@ export
     params,
     residuals,
     response,
+    responsename,
     score,
+    stderror,
     vcov,
     weights
 
