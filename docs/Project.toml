@@ -1,4 +1,5 @@
 [deps]
+BetaRegression = "2339b9c3-daaf-4eaa-90d5-e8471159c344"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 
 [compat]

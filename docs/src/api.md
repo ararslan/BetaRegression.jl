@@ -14,8 +14,8 @@ change.
 
 ```@docs
 BetaRegressionModel
-fit(::Type{<:BetaRegressionModel}, ::AbstractMatrix, ::AbstractVector)
-fit!(::BetaRegressionModel)
+fit
+fit!
 ```
 
 ## Properties of a model
