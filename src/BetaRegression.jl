@@ -27,6 +27,8 @@ export
     ProbitLink,
     dispersion,
     linpred,
+    # Utilities from StatsModels:
+    @formula,
     # Extensions from StatsAPI:
     coef,
     deviance,
@@ -220,8 +222,15 @@ end
 
 StatsAPI.deviance(b::BetaRegressionModel) = sum(abs2, devresid(b))
 
-# Initialize the coefficients based on the recommendations at the end of section 2:
-# perform an OLS regression on g(y)
+# Initialization method as recommended at the end of Ferrari (2004), section 2
+"""
+    initialize!(b::BetaRegressionModel)
+
+Initialize the given [`BetaRegressionModel`](@ref) by computing starting points for
+the parameter estimates and return the updated model object.
+The initial estimates are based on those from a linear regression model with the same
+model matrix as `b` but with `linkfun.(Link(b), response(b))` as the response.
+"""
 function initialize!(b::BetaRegressionModel)
     link = Link(b)
     X = modelmatrix(b)
@@ -382,6 +391,28 @@ function StatsAPI.fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8
     throw(ConvergenceException(maxiter))
 end
 
+"""
+    fit(BetaRegressionModel, formula, data, link=LogitLink(); kwargs...)
+
+Fit a [`BetaRegressionModel`](@ref) to the given table `data`, which may be any
+Tables.jl-compatible table (e.g. a `DataFrame`), using the given `formula`, which can
+be constructed using `@formula`. In this method, the response and model matrix are
+determined from the formula and table. It is also possible to provide them explicitly.
+
+    fit(BetaRegressionModel, X::AbstractMatrix, y::AbstractVector, link=LogitLink(); kwargs...)
+
+Fit a beta regression model using the provided model matrix `X` and response vector `y`.
+In both of these methods, a link function may be provided. If left unspecified, a
+logit link is used.
+
+## Keyword Arguments
+
+- `weights`: A vector of weights or `nothing` (default). Currently only `nothing` is accepted.
+- `offset`: An offset vector to be added to the linear predictor or `nothing` (default).
+- `maxiter`: Maximum number of Fisher scoring iterations to use when fitting. Default is 100.
+- `atol`: Absolute tolerance to use when checking for model convergence. Default is 1e-8.
+- `rtol`: Relative tolerance to use when checking for convergence. Default is also 1e-8.
+"""
 function StatsAPI.fit(::Type{BetaRegressionModel}, X::AbstractMatrix, y::AbstractVector,
                       link=LogitLink(); weights=nothing, offset=nothing, maxiter=100,
                       atol=1e-8, rtol=1e-8)

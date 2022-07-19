@@ -14,7 +14,7 @@ change.
 
 ```@docs
 BetaRegressionModel
-fit
+fit(::BetaRegressionModel, ::AbstractMatrix, ::AbstractVector)
 fit!(::BetaRegressionModel)
 ```
 
@@ -49,11 +49,12 @@ However, `coef` does _not_ include the dispersion term and will have length ``p`
 
 ## Developer documentation
 
-This section documents some functions that are _not_ user facing and may be removed
-at any time.
+This section documents some functions that are _not_ user facing (and are thus not
+exported) and may be removed at any time.
 They're included here for the benefit of anyone looking to contribute to the package
 and wondering how certain internals work.
 
 ```@docs
 dmueta
+initialize!
 ```

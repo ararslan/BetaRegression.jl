@@ -1,7 +1,6 @@
 using BetaRegression
 using GLM
 using StatsBase
-using StatsModels
 using Test
 
 using GLM: linkinv
