@@ -146,6 +146,7 @@ end
     @test first(coef(model_with_offset)) ≈ first(coef(model)) - 1 atol=1e-8
     @test coef(model_with_offset)[2:end] ≈ coef(model)[2:end] atol=1e-8
     @test predict(model_with_offset, newobs; offset=[1]) ≈ [0.2854928] atol=1e-6
+    @test_throws ArgumentError predict(model_with_offset, newobs)
 end
 
 @testset "Example: Prater's gasoline data (Ferrari table 1)" begin
