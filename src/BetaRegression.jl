@@ -49,6 +49,7 @@ export
     nobs,
     offset,
     params,
+    predict,
     r2,
     r²,
     residuals,
@@ -161,6 +162,19 @@ StatsAPI.dof(b::BetaRegressionModel) = length(params(b))
 StatsAPI.dof_residual(b::BetaRegressionModel) = nobs(b) - dof(b)
 
 StatsAPI.r2(b::BetaRegressionModel) = cor(linpred(b), linkfun.(Link(b), response(b)))^2
+
+StatsAPI.predict(b::BetaRegressionModel) = fitted(b)
+
+function StatsAPI.predict(b::BetaRegressionModel, newX::AbstractMatrix; offset=nothing)
+    if !isempty(b.offset) && (offset === nothing || isempty(offset))
+        throw(ArgumentError("model was fit with an offset but no offset was provided"))
+    end
+    η̂ = newX * coef(b)
+    if offset !== nothing && !isempty(offset)
+        η̂ .+= offset
+    end
+    return linkinv.(Link(b), η̂)
+end
 
 GLM.Link(b::BetaRegressionModel{T,L}) where {T,L} = L()
 
