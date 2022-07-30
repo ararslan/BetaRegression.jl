@@ -5,19 +5,22 @@
 [![Code Coverage](http://codecov.io/github/ararslan/BetaRegression.jl/coverage.svg?branch=main)](http://codecov.io/github/ararslan/BetaRegression.jl?branch=main)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://ararslan.github.io/BetaRegression.jl/dev)
 
-This package provides regression modeling functionality for beta-distributed responses
-as described by Ferrari and Cribari-Neto<sup>[1]</sup>.
-The concept is quite similar to that of a generalized linear model (GLM) except that the
-beta distribution is not in the exponential dispersion family and the model coefficients
-and dispersion parameter are not orthogonal.
+This package provides regression modeling functionality for continuous,
+[beta-distributed](https://en.wikipedia.org/wiki/Beta_distribution) responses with values
+in the open interval (0, 1).
+Models of this kind are particularly useful when modeling rates and proportions, which
+naturally fall within the unit interval (or can be trivially transformed to do so).
 
-The exported symbols from the package define its intended interface.
-Note however that the interface and/or underlying implementation details may change
-significantly prior to an initial release.
+In concept, beta regression models are quite similar to generalized linear models (GLMs),
+though they are not actually GLMs due to the parameterization used for the beta
+distribution.
+However, users familiar with [GLM.jl](https://github.com/JuliaStats/GLM.jl) will likely
+find that this package feels familiar in its interface and behavior.
 
-Still to do:
-- Better tests and documentation
+See the package documentation for more information, including usage examples.
 
-<sup>[1]</sup>Silvia Ferrari & Francisco Cribari-Neto (2004) Beta Regression for Modelling
-Rates and Proportions, Journal of Applied Statistics, 31:7, 799-815,
-DOI: 10.1080/0266476042000214501
+## References
+
+Ferrari, S. & Cribari-Neto, F. (2004). Beta regression for modelling rates and proportions.
+_Journal of Applied Statistics_, 31(7), 799–815.
+https://doi.org/10.1080/0266476042000214501
