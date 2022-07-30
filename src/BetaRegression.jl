@@ -458,7 +458,7 @@ end
 
 # TODO: Move the StatsAPI extensions to the delegations that happen in StatsModels itself
 @delegate(TableRegressionModel{<:BetaRegressionModel}.model,
-          [GLM.Link, GLM.devresid, GLM.linpred, StatsAPI.informationmatrix,
+          [Base.precision, GLM.Link, GLM.devresid, GLM.linpred, StatsAPI.informationmatrix,
            StatsAPI.score, StatsAPI.weights])
 
 StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel}) =
