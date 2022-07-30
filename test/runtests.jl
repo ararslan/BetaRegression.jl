@@ -135,6 +135,10 @@ end
                          -0.0343372   -0.000933215  0.00894725 65.2799] atol=1e-5
     @test r²(model) ≈ 0.3878327 atol=1e-6
     @test r2(model) === r²(model)
+    @test aic(model) ≈ -82.66702 atol=1e-5
+    k = dof(model)
+    @test aicc(model) ≈ aic(model) + 2 * k * (k + 1) / (nobs(model) - k - 1)
+    @test bic(model) ≈ -76.11667 atol=1e-5
     @test predict(model) == fitted(model)
     newobs = [1.0 58.44434 3.578947]
     @test predict(model, newobs) ≈ [0.2854928] atol=1e-6

@@ -22,6 +22,9 @@ fit!
 
 The following common functions are extended for beta regression models:
 - `Link`: The model's link function
+- `aic`: Akaike's information criterion for the model
+- `aicc`: Model AIC corrected for small sample sizes
+- `bic`: Bayesian information criterion for the model
 - `coef`: The vector ``\boldsymbol{\beta}`` of regression coefficients
 - `coefnames`: Names of the coefficients (for models fit with a formula and table)
 - `coeftable`: Table of coefficient names, values, standard errors, z-values, and p-values

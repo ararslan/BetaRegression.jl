@@ -15,7 +15,7 @@ using StatsModels
 using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv,
            linpred!, mueta
 using LinearAlgebra: copytri!
-using StatsAPI: offset, params
+using StatsAPI: aic, aicc, bic, offset, params
 using StatsModels: TableRegressionModel, @delegate
 
 export
@@ -32,6 +32,9 @@ export
     # Utilities from StatsModels:
     @formula,
     # Extensions from StatsAPI:
+    aic,
+    aicc,
+    bic,
     coef,
     coefnames,
     coeftable,
