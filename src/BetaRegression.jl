@@ -13,6 +13,7 @@ using StatsModels
 # Necessary stuff that isn't exported from dependencies
 using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv,
            linpred!, mueta
+using LinearAlgebra: copytri!
 using StatsAPI: offset, params
 using StatsModels: TableRegressionModel, @delegate
 
@@ -134,7 +135,7 @@ GLM.linpred(b::BetaRegressionModel) = b.linearpredictor
 
 function GLM.linpred!(b::BetaRegressionModel)
     X = modelmatrix(b)
-    β = coef(b)
+    β = view(params(b), 1:size(X, 2))
     η = linpred(b)
     if isempty(offset(b))
         mul!(η, X, β)
@@ -265,20 +266,19 @@ function StatsAPI.score(b::BetaRegressionModel)
     link = Link(b)
     ϕ = dispersion(b)
     ψϕ = digamma(ϕ)
-    ∂β = zero(coef(b))
-    ∂ϕ = zero(ψϕ)
+    ∂θ = zero(params(b))
     Tr = copy(η)
-    for i in eachindex(y, η)
+    @inbounds for i in eachindex(y, η)
         ηᵢ = η[i]
         μᵢ = linkinv(link, ηᵢ)
         yᵢ = y[i]
         a = digamma((1 - μᵢ) * ϕ)
         r = logit(yᵢ) - digamma(μᵢ * ϕ) + a
-        ∂ϕ += μᵢ * r + log(1 - yᵢ) - a + ψϕ
+        ∂θ[end] += μᵢ * r + log(1 - yᵢ) - a + ψϕ
         Tr[i] = ϕ * r * mueta(link, ηᵢ)
     end
-    mul!(∂β, X', Tr)
-    return push!(∂β, ∂ϕ)
+    mul!(view(∂θ, 1:size(X, 2)), X', Tr)
+    return ∂θ
 end
 
 # Square root of the diagonal of the weight matrix, W for expected information (pg 7),
@@ -333,10 +333,11 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
         A = XᵀWX \ XᵀTc
         γ -= dot(A, XᵀTc) / ϕ
         # Upper left block
-        Kββ = XᵀTc * adjoint(XᵀTc)
+        Kββ = copytri!(syrk('U', 'N', inv(γ * ϕ), XᵀTc), 'U')
         rdiv!(Kββ, XᵀWX)
-        rdiv!(Kββ, γ * ϕ)
-        Kββ[diagind(Kββ)] .+= 1
+        for i in axes(Kββ, 1)
+            @inbounds Kββ[i, i] += 1
+        end
         ldiv!(XᵀWX, Kββ)
         rdiv!(Kββ, ϕ)
         # Upper right and lower left
