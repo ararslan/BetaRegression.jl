@@ -19,7 +19,7 @@ independent variables.
 Further, let ``y_i \sim \mathcal{D}(\mu_i, \phi)`` for a distribution ``\mathcal{D}`` with
 parameters ``\mu_i`` and ``\phi``.
 That is, each observed outcome was generated from the same overall distribution but with
-possibly different means ``\mu_i \in \mathbb{R}`` and a common dispersion
+possibly different means ``\mu_i \in \mathbb{R}`` and a common precision parameter
 ``\phi \in \mathbb{R}``.
 We relate the mean vector ``\boldsymbol{\mu}`` to the independent variables via a _link
 function_ ``g: \mathbb{R} \mapsto \mathbb{R}`` and a _linear predictor_
@@ -63,7 +63,7 @@ The beta distribution in this parameterization is available from Distributions.j
 `Beta`.
 
 Ferrari and Cribari-Neto reparameterize the distribution in terms of a mean ``0 < \mu < 1``
-and dispersion ``\phi > 0`` such that
+and precision ``\phi > 0`` such that
 
 ```math
 \mu = \frac{p}{p + q}, \quad \quad \phi = p + q

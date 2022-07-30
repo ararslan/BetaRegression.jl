@@ -27,11 +27,11 @@ using BetaRegression: 🐟, dmueta
     @test Link(b) == CauchitLink()
     @test nobs(b) == 3
     @test coef(b) == [0, 0]
-    @test dispersion(b) == 0
+    @test precision(b) == 0
     @test_throws ConvergenceException fit!(b; maxiter=0)
     fit!(b)
     @test coef(b) != [0, 0]
-    @test dispersion(b) > 0
+    @test precision(b) > 0
     X = ones(Int, 3, 1)
     y .= 0.5
     b = BetaRegressionModel(X, y, CauchitLink())
@@ -80,9 +80,9 @@ end
     data = (; food=expenditure[:, 1], income=expenditure[:, 2], persons=expenditure[:, 3])
     model = fit(BetaRegressionModel, @formula((food / income) ~ 1 + income + persons), data)
     @test responsename(model) == ":(food / income)"
-    @test coefnames(model) == ["(Intercept)", "income", "persons", "(Dispersion)"]
+    @test coefnames(model) == ["(Intercept)", "income", "persons", "(Precision)"]
     @test coef(model) ≈ [-0.62255, -0.01230, 0.11846] atol=1e-5
-    @test dispersion(model) ≈ 35.60975 atol=1e-5
+    @test precision(model) ≈ 35.60975 atol=1e-5
     @test stderror(model) ≈ [0.22385, 0.00304, 0.03534, 8.07960] atol=1e-5
     @test Link(model) == LogitLink()
     @test isempty(weights(model))
@@ -188,7 +188,7 @@ end
     model = fit(BetaRegressionModel, X, y)
     @test coef(model) ≈ [-6.15957, 1.72773, 1.32260, 1.57231, 1.05971, 1.13375,
                          1.04016, 0.54369, 0.49590, 0.38579, 0.01097] atol=1e-5
-    @test dispersion(model) ≈ 440.27838 atol=1e-5
+    @test precision(model) ≈ 440.27838 atol=1e-5
     @test stderror(model) ≈ [0.18232, 0.10123, 0.11790, 0.11610, 0.10236, 0.10352,
                              0.10604, 0.10913, 0.10893, 0.11859, 0.00041, 110.02562] atol=1e-4
 end

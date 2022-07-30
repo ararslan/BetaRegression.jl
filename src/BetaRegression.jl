@@ -12,8 +12,7 @@ using StatsBase
 using StatsModels
 
 # Necessary stuff that isn't exported from dependencies
-using GLM: Link01, LmResp, cholpred, dispersion, inverselink, linkfun, linkinv,
-           linpred!, mueta
+using GLM: Link01, LmResp, cholpred, inverselink, linkfun, linkinv, linpred!, mueta
 using LinearAlgebra: copytri!
 using StatsAPI: aic, aicc, bic, offset, params
 using StatsModels: TableRegressionModel, @delegate
@@ -27,7 +26,6 @@ export
     Link01,
     LogitLink,
     ProbitLink,
-    dispersion,
     linpred,
     # Utilities from StatsModels:
     @formula,
@@ -136,7 +134,16 @@ StatsAPI.params(b::BetaRegressionModel) = b.parameters
 
 StatsAPI.coef(b::BetaRegressionModel) = params(b)[1:(end - 1)]
 
-GLM.dispersion(b::BetaRegressionModel) = params(b)[end]
+"""
+    precision(model::BetaRegressionModel)
+
+Return the estimated precision parameter, ``\\phi``, for the model.
+This parameter is estimated alongside the regression coefficients and is included in
+coefficient tables.
+
+See also: `coef`, `params`
+"""
+Base.precision(b::BetaRegressionModel) = params(b)[end]
 
 GLM.linpred(b::BetaRegressionModel) = b.linearpredictor
 
@@ -191,7 +198,7 @@ function StatsAPI.coeftable(b::BetaRegressionModel; level::Real=0.95)
     s = string(isinteger(level) ? trunc(Int, level) : level)
     return CoefTable(hcat(θ, se, z, p, ci),
                      ["Coef.", "Std. Error", "z", "Pr(>|z|)", "Lower $s%", "Upper $s%"],
-                     push!(map(i -> "x$i", 1:(length(θ) - 1)), "(Dispersion)"), 4, 3)
+                     push!(map(i -> "x$i", 1:(length(θ) - 1)), "(Precision)"), 4, 3)
 end
 
 function StatsAPI.confint(b::BetaRegressionModel; level::Real=0.95)
@@ -206,7 +213,7 @@ betalogpdf(μ, ϕ, y) = logpdf(Beta(μ * ϕ, (1 - μ) * ϕ), y)
 function StatsAPI.loglikelihood(b::BetaRegressionModel)
     y = response(b)
     μ = fitted(b)
-    ϕ = dispersion(b)
+    ϕ = precision(b)
     w = weights(b)
     if isempty(w)
         return sum(i -> betalogpdf(μ[i], ϕ, y[i]), eachindex(y, μ))
@@ -218,7 +225,7 @@ end
 function StatsAPI.loglikelihood(b::BetaRegressionModel, ::Colon)
     y = response(b)
     μ = fitted(b)
-    ϕ = dispersion(b)
+    ϕ = precision(b)
     w = weights(b)
     if isempty(w)
         return map((yᵢ, μᵢ) -> betalogpdf(μᵢ, ϕ, yᵢ), y, μ)
@@ -232,14 +239,14 @@ function StatsAPI.loglikelihood(b::BetaRegressionModel, i::Integer)
     @boundscheck checkbounds(y, i)
     η = linpred(b)[i]
     μ = linkinv(Link(b), η)
-    ϕ = dispersion(b)
+    ϕ = precision(b)
     ℓ = betalogpdf(μ, ϕ, y[i])
     isempty(weights(b)) || (ℓ *= weights(b)[i])
     return ℓ
 end
 
 function GLM.devresid(b::BetaRegressionModel)
-    ϕ = dispersion(b)
+    ϕ = precision(b)
     return map(response(b), fitted(b)) do y, μ
         r = y - μ
         ℓ₁ = betalogpdf(y, ϕ, y)
@@ -286,7 +293,7 @@ function StatsAPI.score(b::BetaRegressionModel)
     y = response(b)
     η = linpred(b)
     link = Link(b)
-    ϕ = dispersion(b)
+    ϕ = precision(b)
     ψϕ = digamma(ϕ)
     ∂θ = zero(params(b))
     Tr = copy(η)
@@ -330,7 +337,7 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     y = response(b)
     η = linpred(b)
     link = Link(b)
-    ϕ = dispersion(b)
+    ϕ = precision(b)
     ψ′ϕ = trigamma(ϕ)
     Tc = similar(η)
     w = similar(η)
@@ -398,7 +405,7 @@ Fit the given [`BetaRegressionModel`](@ref), updating its values in-place. If mo
 convergence is achieved, `b` is returned, otherwise a `ConvergenceException` is thrown.
 
 Fitting the model consists of computing the maximum likelihood estimates for the
-coefficients and the common dispersion via Fisher scoring with analytic derivatives.
+coefficients and precision parameter via Fisher scoring with analytic derivatives.
 The model is determined to have converged when the score vector, i.e. the vector of
 first partial derivatives of the log likelihood with respect to the parameters, is
 approximately zero. This is determined by `isapprox` using the specified `atol` and
@@ -451,14 +458,14 @@ end
 
 # TODO: Move the StatsAPI extensions to the delegations that happen in StatsModels itself
 @delegate(TableRegressionModel{<:BetaRegressionModel}.model,
-          [GLM.Link, GLM.devresid, GLM.dispersion, GLM.linpred, StatsAPI.informationmatrix,
+          [GLM.Link, GLM.devresid, GLM.linpred, StatsAPI.informationmatrix,
            StatsAPI.score, StatsAPI.weights])
 
 StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel}) =
     sprint(show, formula(m).lhs)
 
 StatsAPI.coefnames(m::TableRegressionModel{<:BetaRegressionModel}) =
-    vcat(coefnames(m.mf), "(Dispersion)")
+    vcat(coefnames(m.mf), "(Precision)")
 
 # Define a more specific method than the one in StatsModels since that one calls
 # `coeftable` on the model's `ModelFrame` directly and that will have too few

@@ -31,7 +31,6 @@ The following common functions are extended for beta regression models:
 - `confint`: Confidence intervals for the coefficient estimates
 - `deviance`: Model deviance
 - `devresid`: Vector of deviance residuals
-- `dispersion`: The estimated dispersion parameter ``\phi``
 - `dof`: Degrees of freedom
 - `dof_residual`: Residual degrees of freedom
 - `fitted`: The vector ``\hat{\mathbf{y}}`` of fitted values from the model
@@ -42,20 +41,21 @@ The following common functions are extended for beta regression models:
 - `nobs`: Number of observations used to fit the model
 - `offset`: Model offset, empty if the model was not fit with an offset
 - `params`: All parameters from the model, including both ``\boldsymbol{\beta}`` and ``\phi``
+- `precision`: The estimated precision parameter ``\phi``
 - `predict`: Predict new response values given new observations
 - `r2`/`r²`: Pseudo ``R^2``
 - `residuals`: Vector of residuals
 - `response`: The response vector ``\boldsymbol{y}``
 - `responsename`: Name of the response variable (for models fit with a formula and table)
 - `score`: Score vector
-- `stderror`: Standard errors of the coefficient and dispersion estimates
+- `stderror`: Standard errors of the coefficient and precision parameter estimates
 - `vcov`: Variance-covariance matrix
 - `weights`: Model weights, empty if the model was not fit with weights
 
 Note that for a model with ``p`` independent variables, the information and
 variance-covariance matrices will have ``p + 1`` rows and columns, the last of which
-corresponds to the dispersion term.
-However, `coef` does _not_ include the dispersion term and will have length ``p``.
+corresponds to the precision term.
+However, `coef` does _not_ include the precision term and will have length ``p``.
 
 ## Developer documentation
 
