@@ -133,6 +133,8 @@ end
                          -0.000519915  9.21477e-6  -2.46623e-7 -0.000933215
                          -0.00462328  -2.46623e-7   0.00124896  0.00894725
                          -0.0343372   -0.000933215  0.00894725 65.2799] atol=1e-5
+    @test r²(model) ≈ 0.3878327 atol=1e-6
+    @test r2(model) === r²(model)
     model_with_offset = fit(BetaRegressionModel, formula(model), data; offset=ones(nobs(model)))
     @test first(coef(model_with_offset)) ≈ first(coef(model)) - 1 atol=1e-8
     @test coef(model_with_offset)[2:end] ≈ coef(model)[2:end] atol=1e-8

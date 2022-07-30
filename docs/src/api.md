@@ -39,6 +39,7 @@ The following common functions are extended for beta regression models:
 - `nobs`: Number of observations used to fit the model
 - `offset`: Model offset, empty if the model was not fit with an offset
 - `params`: All parameters from the model, including both ``\boldsymbol{\beta}`` and ``\phi``
+- `r2`/`r²`: Pseudo ``R^2``
 - `residuals`: Vector of residuals
 - `response`: The response vector ``\boldsymbol{y}``
 - `responsename`: Name of the response variable (for models fit with a formula and table)

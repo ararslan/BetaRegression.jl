@@ -6,6 +6,7 @@ using LinearAlgebra
 using LinearAlgebra.BLAS
 using LogExpFunctions
 using SpecialFunctions
+using Statistics
 using StatsAPI
 using StatsBase
 using StatsModels
@@ -48,6 +49,8 @@ export
     nobs,
     offset,
     params,
+    r2,
+    r²,
     residuals,
     response,
     responsename,
@@ -156,6 +159,8 @@ StatsAPI.nobs(b::BetaRegressionModel) =
 StatsAPI.dof(b::BetaRegressionModel) = length(params(b))
 
 StatsAPI.dof_residual(b::BetaRegressionModel) = nobs(b) - dof(b)
+
+StatsAPI.r2(b::BetaRegressionModel) = cor(linpred(b), linkfun.(Link(b), response(b)))^2
 
 GLM.Link(b::BetaRegressionModel{T,L}) where {T,L} = L()
 
