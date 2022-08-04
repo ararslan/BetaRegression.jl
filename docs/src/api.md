@@ -35,7 +35,7 @@ The following common functions are extended for beta regression models:
 - `dof_residual`: Residual degrees of freedom
 - `fitted`: The vector ``\hat{\mathbf{y}}`` of fitted values from the model
 - `informationmatrix`: Expected or observed Fisher information
-- `linpred`: The linear predictor vector ``\boldsymbol{\eta}``
+- `linearpredictor`: The linear predictor vector ``\boldsymbol{\eta}``
 - `loglikelihood`: Model log likelihood
 - `modelmatrix`: The model matrix ``\mathbf{X}``
 - `nobs`: Number of observations used to fit the model

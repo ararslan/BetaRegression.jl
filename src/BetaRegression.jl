@@ -12,9 +12,9 @@ using StatsBase
 using StatsModels
 
 # Necessary stuff that isn't exported from dependencies
-using GLM: Link01, LmResp, cholpred, inverselink, linkfun, linkinv, linpred!, mueta
+using GLM: Link01, LmResp, cholpred, inverselink, linkfun, linkinv, mueta
 using LinearAlgebra: copytri!
-using StatsAPI: aic, aicc, bic, offset, params
+using StatsAPI: aic, aicc, bic, linearpredictor, linearpredictor!, offset, params
 using StatsModels: TableRegressionModel, @delegate
 
 export
@@ -26,7 +26,6 @@ export
     Link01,
     LogitLink,
     ProbitLink,
-    linpred,
     # Utilities from StatsModels:
     @formula,
     # Extensions from StatsAPI:
@@ -45,6 +44,7 @@ export
     fit,
     fitted,
     informationmatrix,
+    linearpredictor,
     loglikelihood,
     modelmatrix,
     nobs,
@@ -157,12 +157,12 @@ See also: `coef`, `params`
 """
 Base.precision(b::BetaRegressionModel) = params(b)[end]
 
-GLM.linpred(b::BetaRegressionModel) = b.linearpredictor
+StatsAPI.linearpredictor(b::BetaRegressionModel) = b.linearpredictor
 
-function GLM.linpred!(b::BetaRegressionModel)
+function StatsAPI.linearpredictor!(b::BetaRegressionModel)
     X = modelmatrix(b)
     β = view(params(b), 1:size(X, 2))
-    η = linpred(b)
+    η = linearpredictor(b)
     if isempty(offset(b))
         mul!(η, X, β)
     else
@@ -172,7 +172,7 @@ function GLM.linpred!(b::BetaRegressionModel)
     return η
 end
 
-StatsAPI.fitted(b::BetaRegressionModel) = linkinv.(Link(b), linpred(b))
+StatsAPI.fitted(b::BetaRegressionModel) = linkinv.(Link(b), linearpredictor(b))
 
 StatsAPI.residuals(b::BetaRegressionModel) = response(b) .- fitted(b)
 
@@ -183,7 +183,7 @@ StatsAPI.dof(b::BetaRegressionModel) = length(params(b))
 
 StatsAPI.dof_residual(b::BetaRegressionModel) = nobs(b) - dof(b)
 
-StatsAPI.r2(b::BetaRegressionModel) = cor(linpred(b), linkfun.(Link(b), response(b)))^2
+StatsAPI.r2(b::BetaRegressionModel) = cor(linearpredictor(b), linkfun.(Link(b), response(b)))^2
 
 StatsAPI.predict(b::BetaRegressionModel) = fitted(b)
 
@@ -249,7 +249,7 @@ end
 function StatsAPI.loglikelihood(b::BetaRegressionModel, i::Integer)
     y = response(b)
     @boundscheck checkbounds(y, i)
-    η = linpred(b)[i]
+    η = linearpredictor(b)[i]
     μ = linkinv(Link(b), η)
     ϕ = precision(b)
     ℓ = betalogpdf(μ, ϕ, y[i])
@@ -296,14 +296,14 @@ function initialize!(b::BetaRegressionModel)
     σ² = sum(abs2, e) .* abs2.(mueta.(link, η)) ./ (n .- k)
     ϕ = mean(i -> μ[i] * (1 - μ[i]) / σ²[i] - 1, eachindex(μ, σ²))
     copyto!(params(b), push!(β, ϕ))
-    copyto!(linpred(b), η)
+    copyto!(linearpredictor(b), η)
     return b
 end
 
 function StatsAPI.score(b::BetaRegressionModel)
     X = modelmatrix(b)
     y = response(b)
-    η = linpred(b)
+    η = linearpredictor(b)
     link = Link(b)
     ϕ = precision(b)
     ψϕ = digamma(ϕ)
@@ -347,7 +347,7 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     T = eltype(X)
     k = length(params(b))
     y = response(b)
-    η = linpred(b)
+    η = linearpredictor(b)
     link = Link(b)
     ϕ = precision(b)
     ψ′ϕ = trigamma(ϕ)
@@ -433,7 +433,7 @@ function StatsAPI.fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8
         K = 🐟(b, true, true)
         checkfinite(K, iter)
         mul!(params(b), K, U, true, true)
-        linpred!(b)
+        linearpredictor!(b)
     end
     throw(ConvergenceException(maxiter))
 end
@@ -470,8 +470,8 @@ end
 
 # TODO: Move the StatsAPI extensions to the delegations that happen in StatsModels itself
 @delegate(TableRegressionModel{<:BetaRegressionModel}.model,
-          [Base.precision, GLM.Link, GLM.devresid, GLM.linpred, StatsAPI.informationmatrix,
-           StatsAPI.score, StatsAPI.weights])
+          [Base.precision, GLM.Link, GLM.devresid, StatsAPI.informationmatrix,
+           StatsAPI.linearpredictor, StatsAPI.offset, StatsAPI.score, StatsAPI.weights])
 
 StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel}) =
     sprint(show, formula(m).lhs)

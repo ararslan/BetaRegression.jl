@@ -94,6 +94,7 @@ end
     @test stderror(model) ≈ [0.22385, 0.00304, 0.03534, 8.07960] atol=1e-5
     @test Link(model) == LogitLink()
     @test isempty(weights(model))
+    @test isempty(offset(model))
     @test informationmatrix(model) \ score(model) ≈ zeros(4) atol=1e-6
     for expected in false:true
         @test inv(informationmatrix(model; expected)) ≈ 🐟(model.model, expected, true) atol=1e-10
@@ -151,6 +152,7 @@ end
     newobs = [1.0 58.44434 3.578947]
     @test predict(model, newobs) ≈ [0.2854928] atol=1e-6
     model_with_offset = fit(BetaRegressionModel, formula(model), data; offset=ones(nobs(model)))
+    @test offset(model_with_offset) == ones(nobs(model))
     @test first(coef(model_with_offset)) ≈ first(coef(model)) - 1 atol=1e-8
     @test coef(model_with_offset)[2:end] ≈ coef(model)[2:end] atol=1e-8
     @test predict(model_with_offset, newobs; offset=[1]) ≈ [0.2854928] atol=1e-6
