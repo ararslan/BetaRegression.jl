@@ -32,6 +32,14 @@ using BetaRegression: 🐟, dmueta
     fit!(b)
     @test coef(b) != [0, 0]
     @test precision(b) > 0
+    @test startswith(sprint(show, b),
+                     """
+                     BetaRegressionModel{Float64,CauchitLink}
+                         3 observations
+                         3 degrees of freedom
+
+                     Coefficients:
+                     """)
     X = ones(Int, 3, 1)
     y .= 0.5
     b = BetaRegressionModel(X, y, CauchitLink())

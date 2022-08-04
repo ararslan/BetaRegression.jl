@@ -122,6 +122,18 @@ function BetaRegressionModel(X::AbstractMatrix, y::AbstractVector,
                                                                      parameters, η)
 end
 
+function Base.show(io::IO, b::BetaRegressionModel{T,L}) where {T,L}
+    print(io, """
+          BetaRegressionModel{$T,$L}
+              $(nobs(b)) observations
+              $(dof(b)) degrees of freedom
+
+          Coefficients:
+          """)
+    show(io, coeftable(b))
+    return nothing
+end
+
 StatsAPI.response(b::BetaRegressionModel) = b.y
 
 StatsAPI.modelmatrix(b::BetaRegressionModel) = b.X
