@@ -118,8 +118,8 @@ function BetaRegressionModel(X::AbstractMatrix, y::AbstractVector,
     η = Vector{T}(undef, n)
     _X = convert(AbstractMatrix{T}, X)
     _y = convert(AbstractVector{T}, y)
-    return BetaRegressionModel{T,typeof(link),typeof(_y),typeof(_X)}(y, X, weights, offset,
-                                                                     parameters, η)
+    return BetaRegressionModel{T,typeof(link),typeof(_y),typeof(_X)}(_y, _X, weights,
+                                                                     offset, parameters, η)
 end
 
 function Base.show(io::IO, b::BetaRegressionModel{T,L}) where {T,L}
