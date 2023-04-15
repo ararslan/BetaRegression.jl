@@ -5,22 +5,20 @@ language.
 
 ## Getting started
 
-This package is not yet registered in the official package registry.
+This package is registered in Julia's General registry.
 To install the package, run
 
 ```julia-repl
 julia> using Pkg
 
-julia> Pkg.add(; url="https://github.com/ararslan/BetaRegression.jl")
+julia> Pkg.add("BetaRegression")
 ```
 
 or, using the Pkg REPL mode (press `]`),
 
 ```julia-repl
-pkg> add https://github.com/ararslan/BetaRegression.jl
+pkg> add BetaRegression
 ```
-
-These instructions will be updated once the package is registered.
 
 If you're looking for package documentation, welcome!
 You've found it.
