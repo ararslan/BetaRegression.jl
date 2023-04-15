@@ -289,12 +289,16 @@ function initialize!(b::BetaRegressionModel)
     fit!(model)
     β = coef(model)
     η = fitted(model)
-    μ = linkinv.(link, η)
-    e = residuals(model)
     n = nobs(model)
     k = length(β)
-    σ² = sum(abs2, e) .* abs2.(mueta.(link, η)) ./ (n .- k)
-    ϕ = mean(i -> μ[i] * (1 - μ[i]) / σ²[i] - 1, eachindex(μ, σ²))
+    e = sum(abs2, residuals(model)) / (n - k)
+    ϕ = zero(eltype(β))
+    for ηᵢ in η
+        μᵢ = linkinv(link, ηᵢ)
+        σᵢ² = e * mueta(link, ηᵢ)^2
+        ϕ += μᵢ * (1 - μᵢ) / σᵢ² - 1
+    end
+    ϕ /= n
     copyto!(params(b), push!(β, ϕ))
     copyto!(linearpredictor(b), η)
     return b
