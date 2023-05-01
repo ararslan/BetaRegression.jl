@@ -1,9 +1,8 @@
 # BetaRegression.jl
 
-[![Work in Progress](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
 [![Build Status](https://github.com/ararslan/BetaRegression.jl/workflows/CI/badge.svg)](https://github.com/ararslan/BetaRegression.jl/actions?query=workflow%3ACI+branch%3Amain)
 [![Code Coverage](http://codecov.io/github/ararslan/BetaRegression.jl/coverage.svg?branch=main)](http://codecov.io/github/ararslan/BetaRegression.jl?branch=main)
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://ararslan.github.io/BetaRegression.jl/dev)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://ararslan.github.io/BetaRegression.jl/stable)
 
 This package provides regression modeling functionality for continuous,
 [beta-distributed](https://en.wikipedia.org/wiki/Beta_distribution) responses with values
