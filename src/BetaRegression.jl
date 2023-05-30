@@ -299,6 +299,9 @@ function initialize!(b::BetaRegressionModel)
         ϕ += μᵢ * (1 - μᵢ) / σᵢ² - 1
     end
     ϕ /= n
+    # No valid estimate for the precision, follow suit with `betareg` in R and set to 1
+    # See https://stats.stackexchange.com/a/593670
+    ϕ > 0 || (ϕ = one(ϕ))
     copyto!(params(b), push!(β, ϕ))
     copyto!(linearpredictor(b), η)
     return b
