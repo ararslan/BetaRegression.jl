@@ -1,6 +1,9 @@
 using BetaRegression
+using Distributions
 using GLM
+using Random
 using StatsBase
+using StableRNGs
 using Test
 
 using GLM: linkinv
@@ -209,5 +212,20 @@ end
     x = range(0, 1; step=0.001)
     @testset "$L" for L in [CauchitLink, CloglogLink, LogitLink, ProbitLink]
         @test dmueta.(L(), x) ≈ centraldiff.(L(), x) atol=1e-5
+    end
+end
+
+@testset "pathological init" begin
+    invlogit(x) = inv(1 + exp(-x))
+    n = 100
+    X = ones(n, 1)
+    y = Vector{Float64}(undef, n)
+    # additional examples that get negative phi
+    # during fitting; originally in the loop below
+    # (0.2, 0.2), (0.5, 10), (10, 0.3)
+    for (α, β) in [(0.5, 0.5)]
+        y = rand!(StableRNG(42), Beta(α, β), y)
+        model = fit(BetaRegressionModel, X, y)
+        @test invlogit(first(coef(model))) ≈ mean(y) rtol=0.05
     end
 end
