@@ -378,16 +378,17 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     Xᵀ .*= w'
     WX = copy(adjoint(Xᵀ))
     if inverse
-        # XᵀWX = cholesky!(Symmetric(syrk('U', 'N', one(T), Xᵀ)))
-        # @info "" qr(WX)
-        # @info "" XᵀWX
-        # @info "" Cholesky(UpperTriangular(qr(WX).R))
         WX = qr!(WX)
+        # constructing the equivalent choleky factor manually
+        # because I haven't had time to rewrite the ldiv! and rdiv! code below
         XᵀWX = Cholesky(UpperTriangular(WX.R))
-        if !isapprox(XᵀWX.U, WX.R)
-            @info "" XᵀWX.U
-            @info "" WX
-        end
+        # solving for A with Cholesky
+        # A = XᵀWX \ XᵀTc
+        # solving for A with QR
+        # XXX this should be more accurate than the Cholesky route, but we fail some tests
+        # compared to reference values
+        # However the pathological cases really need the numerical stability here
+        # combined with the step halving to work
         A = WX \ Tc
         γ -= dot(A, XᵀTc) / ϕ
         # Upper left block
@@ -412,7 +413,6 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     copyto!(view(K, 1:(k - 1), 1:(k - 1)), Symmetric(Kββ))
     copyto!(view(K, 1:(k - 1), k), Kβϕ)
     K[k, k] = Kϕϕ
-    @info "" K
     return Symmetric(K)
 end
 
@@ -452,7 +452,7 @@ function StatsAPI.fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8
         isapprox(U, z; atol, rtol) && return b  # converged!
         K = 🐟(b, true, true)
         checkfinite(K, iter)
-        if precision(b) < 1.0
+        if last(U) * precision(b) + precision(b) >= 0
             mul!(params(b), K, U, true, true)
         else
             copyto!(scratch, params(b))
