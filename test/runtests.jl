@@ -220,12 +220,9 @@ end
     n = 100
     X = ones(n, 1)
     y = Vector{Float64}(undef, n)
-    # additional examples that get negative phi
-    # during fitting; originally in the loop below
-    # (0.2, 0.2), (0.5, 10), (10, 0.3)
-    for (α, β) in [(0.5, 0.5)]
+    for (α, β) in [(0.5, 0.5), (0.2, 0.2), (0.5, 10), (10, 0.3)]
         y = rand!(StableRNG(42), Beta(α, β), y)
-        model = fit(BetaRegressionModel, X, y)
+        model = fit(BetaRegressionModel, X, y; maxiter=150)
         @test invlogit(first(coef(model))) ≈ mean(y) rtol=0.05
     end
 end

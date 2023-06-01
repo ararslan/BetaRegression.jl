@@ -376,12 +376,23 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     Xᵀ = copy(adjoint(X))
     XᵀTc = Xᵀ * Tc
     Xᵀ .*= w'
+    WX = copy(adjoint(Xᵀ))
     if inverse
-        XᵀWX = cholesky!(Symmetric(syrk('U', 'N', one(T), Xᵀ)))
-        A = XᵀWX \ XᵀTc
+        # XᵀWX = cholesky!(Symmetric(syrk('U', 'N', one(T), Xᵀ)))
+        # @info "" qr(WX)
+        # @info "" XᵀWX
+        # @info "" Cholesky(UpperTriangular(qr(WX).R))
+        WX = qr!(WX)
+        XᵀWX = Cholesky(UpperTriangular(WX.R))
+        if !isapprox(XᵀWX.U, WX.R)
+            @info "" XᵀWX.U
+            @info "" WX
+        end
+        A = WX \ Tc
         γ -= dot(A, XᵀTc) / ϕ
         # Upper left block
-        Kββ = copytri!(syrk('U', 'N', inv(γ * ϕ), XᵀTc), 'U')
+        Kββ = copytri!(syrk('U', 'N', true, XᵀTc), 'U')
+        Kββ ./= γ * ϕ
         rdiv!(Kββ, XᵀWX)
         for i in axes(Kββ, 1)
             @inbounds Kββ[i, i] += 1
@@ -401,6 +412,7 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     copyto!(view(K, 1:(k - 1), 1:(k - 1)), Symmetric(Kββ))
     copyto!(view(K, 1:(k - 1), k), Kβϕ)
     K[k, k] = Kϕϕ
+    @info "" K
     return Symmetric(K)
 end
 
@@ -433,13 +445,22 @@ approximately zero. This is determined by `isapprox` using the specified `atol` 
 function StatsAPI.fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8)
     initialize!(b)
     z = zero(params(b))
+    scratch = similar(params(b))
     for iter in 1:maxiter
         U = score(b)
         checkfinite(U, iter)
         isapprox(U, z; atol, rtol) && return b  # converged!
         K = 🐟(b, true, true)
         checkfinite(K, iter)
-        mul!(params(b), K, U, true, true)
+        if precision(b) < 1.0
+            mul!(params(b), K, U, true, true)
+        else
+            copyto!(scratch, params(b))
+            mul!(scratch, K, U, true, true)
+            vv = params(b)
+            vv .+= scratch
+            vv ./= 2
+        end
         linearpredictor!(b)
     end
     throw(ConvergenceException(maxiter))
