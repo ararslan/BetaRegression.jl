@@ -211,3 +211,14 @@ end
         @test dmueta.(L(), x) ≈ centraldiff.(L(), x) atol=1e-5
     end
 end
+
+@testset "Resetting an invalid initial precision" begin
+    X = ones(10, 1)
+    # Generated via `Beta(0.5, 0.5)`
+    y = [0.9020980693394288, 0.055577211500829754, 0.23132559790498958,
+         0.5813942170987118, 0.9709116084487788, 0.7754094004739907,
+         0.05982031817793439, 0.8670342033149658, 0.683216406088941,
+         0.141451701046685]
+    model = fit(BetaRegressionModel, X, y)
+    @test linkinv(Link(model), only(coef(model))) ≈ mean(y) rtol=0.05
+end
