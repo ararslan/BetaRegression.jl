@@ -1,9 +1,6 @@
 using BetaRegression
-using Distributions
 using GLM
-using Random
 using StatsBase
-using StableRNGs
 using Test
 
 using GLM: linkinv
@@ -215,17 +212,13 @@ end
     end
 end
 
-@testset "pathological init" begin
-    invlogit(x) = inv(1 + exp(-x))
-    n = 100
-    X = ones(n, 1)
-    y = Vector{Float64}(undef, n)
-    # additional examples that get negative phi
-    # during fitting; originally in the loop below
-    # (0.2, 0.2), (0.5, 10), (10, 0.3)
-    for (α, β) in [(0.5, 0.5)]
-        y = rand!(StableRNG(42), Beta(α, β), y)
-        model = fit(BetaRegressionModel, X, y)
-        @test invlogit(first(coef(model))) ≈ mean(y) rtol=0.05
-    end
+@testset "Resetting an invalid initial precision" begin
+    X = ones(10, 1)
+    # Generated via `Beta(0.5, 0.5)`
+    y = [0.9020980693394288, 0.055577211500829754, 0.23132559790498958,
+         0.5813942170987118, 0.9709116084487788, 0.7754094004739907,
+         0.05982031817793439, 0.8670342033149658, 0.683216406088941,
+         0.141451701046685]
+    model = fit(BetaRegressionModel, X, y)
+    @test linkinv(Link(model), only(coef(model))) ≈ mean(y) rtol=0.05
 end
