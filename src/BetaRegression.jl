@@ -317,13 +317,14 @@ function StatsAPI.score(b::BetaRegressionModel)
     ∂θ = zero(params(b))
     Tr = copy(η)
     @inbounds for i in eachindex(y, η)
-        ηᵢ = η[i]
-        μᵢ = linkinv(link, ηᵢ)
         yᵢ = y[i]
-        a = digamma((1 - μᵢ) * ϕ)
-        r = logit(yᵢ) - digamma(μᵢ * ϕ) + a
-        ∂θ[end] += μᵢ * r + log(1 - yᵢ) - a + ψϕ
-        Tr[i] = ϕ * r * mueta(link, ηᵢ)
+        μᵢ, omμᵢ, dμdη = inverselink(link, η[i])
+        ψp = digamma(ϕ * μᵢ)
+        ψq = digamma(ϕ * omμᵢ)
+        Δ = logit(yᵢ) - ψp + ψq   # logit(yᵢ) - 𝔼(logit(yᵢ))
+        z = log1p(-yᵢ) - ψq + ψϕ  # log(1 - yᵢ) - 𝔼(log(1 - yᵢ))
+        ∂θ[end] += fma(μᵢ, Δ, z)
+        Tr[i] = ϕ * Δ * dμdη
     end
     mul!(view(∂θ, 1:size(X, 2)), X', Tr)
     return ∂θ
@@ -333,14 +334,12 @@ end
 # Q for observed information (pg 10). `p = μ * ϕ` and `q = (1 - μ) * ϕ` are the beta
 # distribution parameters in the typical parameterization, `ψ′_` is `trigamma(_)`.
 function weightdiag(link, p, q, ψ′p, ψ′q, ϕ, yᵢ, ηᵢ, dμdη, expected)
-    w = ϕ * (ψ′p + ψ′q)
+    w = abs(ϕ) * (ψ′p + ψ′q)
     if expected
-        return sqrt(w) * dμdη
+        return sqrt(w) * abs(dμdη)
     else
         w *= dμdη^2
-        ystar = logit(yᵢ)
-        μstar = digamma(p) - digamma(q)
-        w += (ystar - μstar) * dmueta(link, ηᵢ)
+        w += (logit(yᵢ) - digamma(p) + digamma(q)) * dmueta(link, ηᵢ)
         return sqrt(w)
     end
 end
@@ -363,15 +362,14 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     γ = zero(ϕ)
     for i in eachindex(y, η, w)
         ηᵢ = η[i]
-        μᵢ = linkinv(link, ηᵢ)
+        μᵢ, omμᵢ, dμdη = inverselink(link, ηᵢ)
         p = μᵢ * ϕ
-        q = (1 - μᵢ) * ϕ
+        q = omμᵢ * ϕ
         ψ′p = trigamma(p)
         ψ′q = trigamma(q)
-        dμdη = mueta(link, ηᵢ)
         w[i] = weightdiag(link, p, q, ψ′p, ψ′q, ϕ, y[i], ηᵢ, dμdη, expected)
         Tc[i] = (ψ′p * p - ψ′q * q) * dμdη
-        γ += ψ′p * μᵢ^2 + ψ′q * (1 - μᵢ)^2 - ψ′ϕ
+        γ += ψ′p * μᵢ^2 + ψ′q * omμᵢ^2 - ψ′ϕ
     end
     Xᵀ = copy(adjoint(X))
     XᵀTc = Xᵀ * Tc
@@ -432,14 +430,16 @@ approximately zero. This is determined by `isapprox` using the specified `atol` 
 """
 function StatsAPI.fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8)
     initialize!(b)
-    z = zero(params(b))
+    θ = params(b)
+    z = zero(θ)
     for iter in 1:maxiter
         U = score(b)
         checkfinite(U, iter)
         isapprox(U, z; atol, rtol) && return b  # converged!
         K = 🐟(b, true, true)
         checkfinite(K, iter)
-        mul!(params(b), K, U, true, true)
+        mul!(θ, K, U, true, true)
+        θ[end] = max(θ[end], eps(eltype(θ)))  # impose positivity constraint on ϕ
         linearpredictor!(b)
     end
     throw(ConvergenceException(maxiter))
