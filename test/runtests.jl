@@ -1,4 +1,5 @@
 using BetaRegression
+using Distributions
 using GLM
 using StatsBase
 using Test
@@ -212,13 +213,32 @@ end
     end
 end
 
-@testset "Resetting an invalid initial precision" begin
+@testset "Parameter constraints" begin
+    # Generating distribution and `rand(_, 10)` for several problematic cases. Without
+    # constraints placed on the parameters during optimization, the models built using
+    # these as their respective responses fail to converge. See issue #6.
+    d = [Beta(0.5, 0.5) => [0.9020980693394288, 0.055577211500829754, 0.23132559790498958,
+                            0.5813942170987118, 0.9709116084487788, 0.7754094004739907,
+                            0.05982031817793439, 0.8670342033149658, 0.683216406088941,
+                            0.141451701046685],
+         Beta(0.2, 0.2) => [0.023848292440454045, 0.9355547503109088, 0.9924242111793663,
+                            0.008946868197901494, 0.04010019793873337, 0.16627955105469605,
+                            0.999828498409377, 0.9999768604670911, 0.9930500996079485,
+                            0.9642281316220574],
+         Beta(0.5, 10) => [0.034541975300900515, 0.01939889173586482, 0.24100845407491417,
+                           0.0011108618208461997, 0.00937646060618697, 0.014267329875521517,
+                           0.04085538895184706, 0.016118136919340345, 0.008924027953777908,
+                           0.0760514673345253],
+         Beta(10, 0.3) => [0.9946023297631961, 0.9680165382504563, 0.999142668249286,
+                           0.9917649725155366, 0.9843468826146887, 0.9999997547187489,
+                           0.9943098787910513, 0.9991354297579114, 0.9521187943069395,
+                           0.9805165186163991]]
     X = ones(10, 1)
-    # Generated via `Beta(0.5, 0.5)`
-    y = [0.9020980693394288, 0.055577211500829754, 0.23132559790498958,
-         0.5813942170987118, 0.9709116084487788, 0.7754094004739907,
-         0.05982031817793439, 0.8670342033149658, 0.683216406088941,
-         0.141451701046685]
-    model = fit(BetaRegressionModel, X, y)
-    @test linkinv(Link(model), only(coef(model))) ≈ mean(y) rtol=0.05
+    @testset "Generated from $dist" for (dist, y) in d
+        model = fit(BetaRegressionModel, X, y)
+        @test linkinv(Link(model), only(coef(model))) ≈ mean(y) rtol=0.05
+        μ̂ = mean(fitted(model))
+        ϕ̂ = precision(model)
+        @test μ̂ * (1 - μ̂) / (1 + ϕ̂) ≈ var(y) rtol=0.5
+    end
 end
