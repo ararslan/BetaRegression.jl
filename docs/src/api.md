@@ -36,12 +36,14 @@ The following common functions are extended for beta regression models:
 - `fitted`: The vector ``\hat{\mathbf{y}}`` of fitted values from the model
 - `informationmatrix`: Expected or observed Fisher information
 - `linearpredictor`: The linear predictor vector ``\boldsymbol{\eta}``
+- `Link`: Link function ``g`` used for the mean
 - `loglikelihood`: Model log likelihood
 - `modelmatrix`: The model matrix ``\mathbf{X}``
 - `nobs`: Number of observations used to fit the model
 - `offset`: Model offset, empty if the model was not fit with an offset
 - `params`: All parameters from the model, including both ``\boldsymbol{\beta}`` and ``\phi``
-- `precision`: The estimated precision parameter ``\phi``
+- `precision`: The estimated precision parameter ``\phi`` on its natural scale
+- `precisionlink`: Link function ``h`` used for the precision parameter
 - `predict`: Predict new response values given new observations
 - `r2`/`r²`: Pseudo ``R^2``
 - `residuals`: Vector of residuals

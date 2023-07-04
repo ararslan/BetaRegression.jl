@@ -92,47 +92,65 @@ With all of these definitions in mind, we can now formulate the beta regression 
 Assume now that
 
 ```math
-y_i \sim \mathcal{B}(g^{-1}(\mathbf{x}_i^\top \boldsymbol{\beta}), \phi), \quad \quad
-i = 1, \ldots, n
+y_i \sim \mathcal{B}(g^{-1}(\mathbf{x}_i^\top \boldsymbol{\beta}), h^{-1}(\phi)),
+\quad \quad i = 1, \ldots, n
 ```
 
-where the link function is ``g: (0, 1) \mapsto \mathbb{R}`` and ``\mathbf{x}_i^\top`` is
-the ``i``th row of ``\mathbf{X}``.
+where the link function for the mean ``\mu`` is ``g: (0, 1) \mapsto \mathbb{R}``,
+``\mathbf{x}_i^\top`` is the ``i``th row of ``\mathbf{X}``, and the link function for
+the precision ``\phi`` is ``h: (0, \infty) \mapsto \mathbb{R}``.
 Just like with GLMs, we're modeling ``\mu`` as a function of the linear predictor and
 our ultimate goal is to estimate ``\boldsymbol{\beta}``.
 But since ``\mu`` depends on ``\phi``, so does ``\boldsymbol{\beta}``!
-Thus to estimate ``\boldsymbol{\beta}``, we must also estimate ``\phi``.
-As it turns out, we don't have to resort to anything fancy in order to do this; we can
-simply use [maximum likelihood](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation).
+Thus to estimate ``\boldsymbol{\beta}``, we must also estimate ``\phi``, which is assumed
+to be an unknown constant.
+
+Some formulations of the beta regression model use separate sub-models for the mean and
+precision with separate coefficients and possibly non-overlapping sets of independent
+variables, thereby not assuming constant precision.
+That is not implemented in this package.
+By analogy, what is implemented here is an intercept-only sub-model for the precision.
+
+We don't have to resort to anything fancy in order to fit beta regression models; we can
+simply use [maximum likelihood](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation)
+on the full parameter vector for the model, which we define to be
+``\theta = [\beta_0, \ldots, \beta_n, \phi]``.
 
 ## Fitting a model
 
 In BetaRegression.jl, the maximum likelihood estimation is carried out via
 [Fisher scoring](https://en.wikipedia.org/wiki/Scoring_algorithm) using closed-form
 expressions for the score vector and expected information matrix.
+
 There is no canonical link function for the beta regression model in this parameterization
 in the same manner as for GLMs (anything that constrains ``\mu`` within ``(0, 1)`` will
-do just fine) but for simplicity the default link function is
+do just fine) but for simplicity and interpretability the default link function is
 [logit](https://en.wikipedia.org/wiki/Logit).
 In the parlance of GLM.jl, this means that any `Link01` can be used and the default is
 `LogitLink`.
+
+Providing a separate link function for the precision can improve numerical stability
+when fitting models by naturally constraining the precision to be nonnegative.
+The default is the identity link function, or in GLM.jl terms, `IdentityLink`, but other
+common choices include the logarithm and square root links, `LogLink` and `SqrtLink`,
+respectively.
 
 Mirroring the API for GLMs provided by GLM.jl, a beta regression model is fit by passing
 an explicit design matrix `X` and response vector `y` as in
 
 ```julia
-fit(BetaRegressionModel, X, y, link; kwargs...)
+fit(BetaRegressionModel, X, y, meanlink, precisionlink; kwargs...)
 ```
 
 or by providing a [Tables.jl](https://github.com/JuliaData/Tables.jl)-compatible table
 `table` and a formula specified via `@formula` in Wilkinson notation as in
 
 ```julia
-fit(BetaRegressionModel, @formula(y ~ 1 + x1 + ... + xn), table, link; kwargs...)
+fit(BetaRegressionModel, @formula(y ~ 1 + x1 + ... + xn), table, meanlink, precisionlink; kwargs...)
 ```
 
-In both methods, the `link` argument is optional and, as previously mentioned, defaults
-to `LogitLink()`.
+In both methods, the `meanlink` and `precisionlink` arguments are optional and, as
+previously mentioned, default to `LogitLink()` and `IdentityLink()`, respectively.
 The keyword arguments provide control over the fitting process as well as the ability
 to specify an offset and weights.
 (Note however that weights are currently unsupported.)

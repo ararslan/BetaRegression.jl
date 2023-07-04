@@ -22,10 +22,12 @@ using BetaRegression: 🐟, dmueta
     X = [1 2; 3 4; 5 6]
     y = [0.1, 0.2, 0.3]
     b = BetaRegressionModel(X, y, CauchitLink())
-    @test b isa BetaRegressionModel{Float64,CauchitLink,Vector{Float64},Matrix{Float64}}
+    @test b isa BetaRegressionModel{Float64,CauchitLink,IdentityLink,
+                                    Vector{Float64},Matrix{Float64}}
     @test response(b) === y
     @test modelmatrix(b) == X
     @test Link(b) == CauchitLink()
+    @test precisionlink(b) == IdentityLink()
     @test nobs(b) == 3
     @test coef(b) == [0, 0]
     @test precision(b) == 0
@@ -35,9 +37,11 @@ using BetaRegression: 🐟, dmueta
     @test precision(b) > 0
     @test startswith(sprint(show, b),
                      """
-                     BetaRegressionModel{Float64,CauchitLink}
+                     BetaRegressionModel{Float64}
                          3 observations
                          3 degrees of freedom
+                         Mean link: CauchitLink
+                         Precision link: IdentityLink
 
                      Coefficients:
                      """)
@@ -196,12 +200,17 @@ end
     y = [0.122, 0.223, 0.347, 0.457, 0.080, 0.131, 0.266, 0.074, 0.182, 0.304, 0.069,
          0.152, 0.260, 0.336, 0.144, 0.268, 0.349, 0.100, 0.248, 0.317, 0.028, 0.064,
          0.161, 0.278, 0.050, 0.176, 0.321, 0.140, 0.232, 0.085, 0.147, 0.180]
-    model = fit(BetaRegressionModel, X, y)
-    @test coef(model) ≈ [-6.15957, 1.72773, 1.32260, 1.57231, 1.05971, 1.13375,
-                         1.04016, 0.54369, 0.49590, 0.38579, 0.01097] atol=1e-5
-    @test precision(model) ≈ 440.27838 atol=1e-5
-    @test stderror(model) ≈ [0.18232, 0.10123, 0.11790, 0.11610, 0.10236, 0.10352,
-                             0.10604, 0.10913, 0.10893, 0.11859, 0.00041, 110.02562] atol=1e-4
+    @testset "precision $L" for (L, se) in [(IdentityLink, 110.02562),
+                                            (LogLink, 0.2499),
+                                            (SqrtLink, 2.6218)]
+        model = fit(BetaRegressionModel, X, y, LogitLink(), L())
+        @test coef(model) ≈ [-6.15957, 1.72773, 1.32260, 1.57231, 1.05971, 1.13375,
+                             1.04016, 0.54369, 0.49590, 0.38579, 0.01097] atol=1e-5
+        @test precision(model) ≈ 440.27838 atol=1e-5
+        @test stderror(model) ≈ [0.18232, 0.10123, 0.11790, 0.11610, 0.10236, 0.10352,
+                                 0.10604, 0.10913, 0.10893, 0.11859, 0.00041, se] atol=1e-4
+        @test precisionlink(model) == L()
+    end
 end
 
 @testset "dmueta" begin
@@ -213,10 +222,11 @@ end
     end
 end
 
-@testset "Parameter constraints" begin
+@testset "Problematic responses" begin
     # Generating distribution and `rand(_, 10)` for several problematic cases. Without
     # constraints placed on the parameters during optimization, the models built using
-    # these as their respective responses fail to converge. See issue #6.
+    # default options and these as their respective responses fail to converge. (See
+    # issue #6.) Some still fail when using non-default options.
     d = [Beta(0.5, 0.5) => [0.9020980693394288, 0.055577211500829754, 0.23132559790498958,
                             0.5813942170987118, 0.9709116084487788, 0.7754094004739907,
                             0.05982031817793439, 0.8670342033149658, 0.683216406088941,
@@ -234,11 +244,24 @@ end
                            0.9943098787910513, 0.9991354297579114, 0.9521187943069395,
                            0.9805165186163991]]
     X = ones(10, 1)
-    @testset "Generated from $dist" for (dist, y) in d
-        model = fit(BetaRegressionModel, X, y)
+    μlinks = [LogitLink, ProbitLink, CloglogLink, CauchitLink]
+    ϕlinks = [IdentityLink, LogLink, SqrtLink]
+    failures = Any[]
+    @testset "y ~ $dist, μ $L1, ϕ $L2" for (dist, y) in d, L1 in μlinks, L2 in ϕlinks
+        model = try
+            fit(BetaRegressionModel, X, y, L1(), L2(); maxiter=1000)
+        catch ex
+            ex isa ConvergenceException || rethrow()
+            push!(failures, (dist, L1, L2, ex))
+            continue
+        end
         @test linkinv(Link(model), only(coef(model))) ≈ mean(y) rtol=0.05
         μ̂ = mean(fitted(model))
         ϕ̂ = precision(model)
         @test μ̂ * (1 - μ̂) / (1 + ϕ̂) ≈ var(y) rtol=0.5
+    end
+    @test_broken isempty(failures)
+    if !isempty(failures)
+        @warn "FIXME: The following intercept-only models failed to converge" failures
     end
 end

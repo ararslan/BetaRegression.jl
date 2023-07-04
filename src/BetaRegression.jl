@@ -19,13 +19,21 @@ using StatsModels: TableRegressionModel, @delegate
 
 export
     BetaRegressionModel,
+    precisionlink,
     # Extensions/utilities from GLM:
     CauchitLink,
     CloglogLink,
+    IdentityLink,
+    InverseLink,
+    InverseSquareLink,
     Link,
     Link01,
+    LogLink,
     LogitLink,
+    NegativeBinomialLink,
+    PowerLink,
     ProbitLink,
+    SqrtLink,
     # Utilities from StatsModels:
     @formula,
     # Extensions from StatsAPI:
@@ -62,16 +70,23 @@ export
     weights
 
 """
-    BetaRegressionModel{T,L,V,M} <: RegressionModel
+    BetaRegressionModel{T,L1,L2,V,M} <: RegressionModel
 
 Type representing a regression model for beta-distributed response values in the open
 interval (0, 1), as described by Ferrari and Cribari-Neto (2004).
 
 The mean response is linked to the linear predictor by a link function with type
-`L <: Link01`, i.e. the link must map ``(0, 1) ↦ ℝ`` and use the GLM package's interface
-for link functions.
+`L1 <: Link01`, i.e. the link must map ``(0, 1) \\mapsto \\mathbb{R}`` and use the GLM
+package's interface for link functions.
+While there is no canonical link function for the beta regression model as there is for
+GLMs, logit is the most common choice.
+
+The precision is transformed by a link function with type `L2 <: Link` which should map
+``\\mathbb{R} \\mapsto \\mathbb{R}`` or, ideally, ``(0, \\infty) \\mapsto \\mathbb{R}``
+because the precision must be positive.
+The most common choices are the identity, log, and square root links.
 """
-struct BetaRegressionModel{T<:AbstractFloat,L<:Link01,V<:AbstractVector{T},
+struct BetaRegressionModel{T<:AbstractFloat,L1<:Link01,L2<:Link,V<:AbstractVector{T},
                            M<:AbstractMatrix{T}} <: RegressionModel
     y::V
     X::M
@@ -82,17 +97,20 @@ struct BetaRegressionModel{T<:AbstractFloat,L<:Link01,V<:AbstractVector{T},
 end
 
 """
-    BetaRegressionModel(X, y, link=LogitLink(); weights=nothing, offset=nothing)
+    BetaRegressionModel(X, y, link=LogitLink(), precisionlink=IdentityLink();
+                        weights=nothing, offset=nothing)
 
 Construct a `BetaRegressionModel` object with the given model matrix `X`, response
-`y`, link function `link`, and optionally `weights` and `offset`.
+`y`, mean link function `link`, precision link function `precisionlink`, and optionally
+`weights` and `offset`.
+Note that the returned object is not fit until `fit!` is called on it.
 
 !!! warn
     Support for user-provided weights is currently incomplete; passing a value other
     than `nothing` or an empty array for `weights` will result in an error for now.
 """
 function BetaRegressionModel(X::AbstractMatrix, y::AbstractVector,
-                             link::Link01=LogitLink();
+                             link::Link01=LogitLink(), precisionlink::Link=IdentityLink();
                              weights=nothing, offset=nothing)
     n, p = size(X)
     p < n || throw(ArgumentError("model matrix must have fewer columns than rows"))
@@ -118,15 +136,19 @@ function BetaRegressionModel(X::AbstractMatrix, y::AbstractVector,
     η = Vector{T}(undef, n)
     _X = convert(AbstractMatrix{T}, X)
     _y = convert(AbstractVector{T}, y)
-    return BetaRegressionModel{T,typeof(link),typeof(_y),typeof(_X)}(_y, _X, weights,
-                                                                     offset, parameters, η)
+    L1 = typeof(link)
+    L2 = typeof(precisionlink)
+    return BetaRegressionModel{T,L1,L2,typeof(_y),typeof(_X)}(_y, _X, weights,
+                                                              offset, parameters, η)
 end
 
-function Base.show(io::IO, b::BetaRegressionModel{T,L}) where {T,L}
+function Base.show(io::IO, b::BetaRegressionModel{T,L1,L2}) where {T,L1,L2}
     print(io, """
-          BetaRegressionModel{$T,$L}
+          BetaRegressionModel{$T}
               $(nobs(b)) observations
               $(dof(b)) degrees of freedom
+              Mean link: $L1
+              Precision link: $L2
 
           Coefficients:
           """)
@@ -150,12 +172,15 @@ StatsAPI.coef(b::BetaRegressionModel) = params(b)[1:(end - 1)]
     precision(model::BetaRegressionModel)
 
 Return the estimated precision parameter, ``\\phi``, for the model.
+This function returns ``\\phi`` on the natural scale, _not_ on the precision link scale.
 This parameter is estimated alongside the regression coefficients and is included in
-coefficient tables.
+coefficient tables, where it _is_ displayed on the precision link scale.
 
 See also: `coef`, `params`
 """
-Base.precision(b::BetaRegressionModel) = params(b)[end]
+Base.precision(b::BetaRegressionModel) = linkinv(precisionlink(b), last(params(b)))
+
+precisioninverselink(b::BetaRegressionModel) = inverselink(precisionlink(b), last(params(b)))
 
 StatsAPI.linearpredictor(b::BetaRegressionModel) = b.linearpredictor
 
@@ -198,7 +223,9 @@ function StatsAPI.predict(b::BetaRegressionModel, newX::AbstractMatrix; offset=n
     return linkinv.(Link(b), η̂)
 end
 
-GLM.Link(b::BetaRegressionModel{T,L}) where {T,L} = L()
+GLM.Link(::BetaRegressionModel{T,L1}) where {T,L1} = L1()
+
+precisionlink(::BetaRegressionModel{T,L1,L2}) where {T,L1,L2} = L2()
 
 function StatsAPI.coeftable(b::BetaRegressionModel; level::Real=0.95)
     θ = params(b)
@@ -302,6 +329,7 @@ function initialize!(b::BetaRegressionModel)
     # No valid estimate for the precision, follow suit with `betareg` in R and set to 1
     # See https://stats.stackexchange.com/a/593670
     ϕ > 0 || (ϕ = one(ϕ))
+    ϕ = linkfun(precisionlink(b), ϕ)
     copyto!(params(b), push!(β, ϕ))
     copyto!(linearpredictor(b), η)
     return b
@@ -312,7 +340,7 @@ function StatsAPI.score(b::BetaRegressionModel)
     y = response(b)
     η = linearpredictor(b)
     link = Link(b)
-    ϕ = precision(b)
+    ϕ, dϕ, _ = precisioninverselink(b)
     ψϕ = digamma(ϕ)
     ∂θ = zero(params(b))
     Tr = copy(η)
@@ -327,6 +355,7 @@ function StatsAPI.score(b::BetaRegressionModel)
         Tr[i] = ϕ * Δ * dμdη
     end
     mul!(view(∂θ, 1:size(X, 2)), X', Tr)
+    ∂θ[end] *= dϕ
     return ∂θ
 end
 
@@ -355,9 +384,10 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     y = response(b)
     η = linearpredictor(b)
     link = Link(b)
-    ϕ = precision(b)
+    ϕ, dϕ, _ = precisioninverselink(b)
     ψ′ϕ = trigamma(ϕ)
     Tc = similar(η)
+    Tc .= dϕ
     w = similar(η)
     γ = zero(ϕ)
     for i in eachindex(y, η, w)
@@ -368,9 +398,10 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
         ψ′p = trigamma(p)
         ψ′q = trigamma(q)
         w[i] = weightdiag(link, p, q, ψ′p, ψ′q, ϕ, y[i], ηᵢ, dμdη, expected)
-        Tc[i] = (ψ′p * p - ψ′q * q) * dμdη
+        Tc[i] *= (ψ′p * p - ψ′q * q) * dμdη
         γ += ψ′p * μᵢ^2 + ψ′q * omμᵢ^2 - ψ′ϕ
     end
+    γ *= dϕ^2
     Xᵀ = copy(adjoint(X))
     XᵀTc = Xᵀ * Tc
     Xᵀ .*= w'
@@ -446,7 +477,8 @@ function StatsAPI.fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8
 end
 
 """
-    fit(BetaRegressionModel, formula, data, link=LogitLink(); kwargs...)
+    fit(BetaRegressionModel, formula, data, link=LogitLink(), precisionlink=IdentityLink();
+        kwargs...)
 
 Fit a [`BetaRegressionModel`](@ref) to the given table `data`, which may be any
 Tables.jl-compatible table (e.g. a `DataFrame`), using the given `formula`, which can
@@ -456,8 +488,10 @@ determined from the formula and table. It is also possible to provide them expli
     fit(BetaRegressionModel, X::AbstractMatrix, y::AbstractVector, link=LogitLink(); kwargs...)
 
 Fit a beta regression model using the provided model matrix `X` and response vector `y`.
-In both of these methods, a link function may be provided. If left unspecified, a
-logit link is used.
+In both of these methods, a link function may be provided, otherwise the default logit
+link is used.
+Similarly, a link for the precision may be provided, otherwise the default identity link
+is used.
 
 ## Keyword Arguments
 
@@ -466,11 +500,15 @@ logit link is used.
 - `maxiter`: Maximum number of Fisher scoring iterations to use when fitting. Default is 100.
 - `atol`: Absolute tolerance to use when checking for model convergence. Default is 1e-8.
 - `rtol`: Relative tolerance to use when checking for convergence. Default is also 1e-8.
+
+!!! note
+    If you experience convergence issues, you may consider trying a different link for
+    the precision. `LogLink()` is a common choice.
 """
 function StatsAPI.fit(::Type{BetaRegressionModel}, X::AbstractMatrix, y::AbstractVector,
-                      link=LogitLink(); weights=nothing, offset=nothing, maxiter=100,
-                      atol=1e-8, rtol=1e-8)
-    b = BetaRegressionModel(X, y, link; weights, offset)
+                      link::Link01=LogitLink(), precisionlink::Link=IdentityLink();
+                      weights=nothing, offset=nothing, maxiter=100, atol=1e-8, rtol=1e-8)
+    b = BetaRegressionModel(X, y, link, precisionlink; weights, offset)
     fit!(b; maxiter, atol, rtol)
     return b
 end
@@ -478,7 +516,8 @@ end
 # TODO: Move the StatsAPI extensions to the delegations that happen in StatsModels itself
 @delegate(TableRegressionModel{<:BetaRegressionModel}.model,
           [Base.precision, GLM.Link, GLM.devresid, StatsAPI.informationmatrix,
-           StatsAPI.linearpredictor, StatsAPI.offset, StatsAPI.score, StatsAPI.weights])
+           StatsAPI.linearpredictor, StatsAPI.offset, StatsAPI.score, StatsAPI.weights,
+           precisionlink])
 
 StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel}) =
     sprint(show, formula(m).lhs)
