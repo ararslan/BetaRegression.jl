@@ -485,7 +485,8 @@ Tables.jl-compatible table (e.g. a `DataFrame`), using the given `formula`, whic
 be constructed using `@formula`. In this method, the response and model matrix are
 determined from the formula and table. It is also possible to provide them explicitly.
 
-    fit(BetaRegressionModel, X::AbstractMatrix, y::AbstractVector, link=LogitLink(); kwargs...)
+    fit(BetaRegressionModel, X::AbstractMatrix, y::AbstractVector, link=LogitLink(),
+        precisionlink=IdentityLink(); kwargs...)
 
 Fit a beta regression model using the provided model matrix `X` and response vector `y`.
 In both of these methods, a link function may be provided, otherwise the default logit
