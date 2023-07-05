@@ -447,7 +447,7 @@ function checkfinite(x, iters)
 end
 
 """
-    fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8)
+    fit!(b::BetaRegressionModel{T}; maxiter=100, atol=sqrt(eps(T)), rtol=Base.rtoldefault(T))
 
 Fit the given [`BetaRegressionModel`](@ref), updating its values in-place. If model
 convergence is achieved, `b` is returned, otherwise a `ConvergenceException` is thrown.
@@ -459,7 +459,8 @@ first partial derivatives of the log likelihood with respect to the parameters, 
 approximately zero. This is determined by `isapprox` using the specified `atol` and
 `rtol`. `maxiter` dictates the maximum number of Fisher scoring iterations.
 """
-function StatsAPI.fit!(b::BetaRegressionModel; maxiter=100, atol=1e-8, rtol=1e-8)
+function StatsAPI.fit!(b::BetaRegressionModel{T}; maxiter=100, atol=sqrt(eps(T)),
+                       rtol=Base.rtoldefault(T)) where {T}
     initialize!(b)
     θ = params(b)
     z = zero(θ)
@@ -499,18 +500,21 @@ is used.
 - `weights`: A vector of weights or `nothing` (default). Currently only `nothing` is accepted.
 - `offset`: An offset vector to be added to the linear predictor or `nothing` (default).
 - `maxiter`: Maximum number of Fisher scoring iterations to use when fitting. Default is 100.
-- `atol`: Absolute tolerance to use when checking for model convergence. Default is 1e-8.
-- `rtol`: Relative tolerance to use when checking for convergence. Default is also 1e-8.
+- `atol`: Absolute tolerance to use when checking for model convergence. Default is
+  `sqrt(eps(T))` where `T` is the type of the estimates.
+- `rtol`: Relative tolerance to use when checking for convergence. Default is the Base
+  default relative tolerance for `T`.
 
 !!! note
     If you experience convergence issues, you may consider trying a different link for
-    the precision. `LogLink()` is a common choice.
+    the precision; `LogLink()` is a common choice. Increasing the maximum number of
+    iterations may also be beneficial, especially when working with `Float32`.
 """
 function StatsAPI.fit(::Type{BetaRegressionModel}, X::AbstractMatrix, y::AbstractVector,
                       link::Link01=LogitLink(), precisionlink::Link=IdentityLink();
-                      weights=nothing, offset=nothing, maxiter=100, atol=1e-8, rtol=1e-8)
+                      weights=nothing, offset=nothing, kwargs...)
     b = BetaRegressionModel(X, y, link, precisionlink; weights, offset)
-    fit!(b; maxiter, atol, rtol)
+    fit!(b; kwargs...)
     return b
 end
 
