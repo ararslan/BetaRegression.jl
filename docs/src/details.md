@@ -114,13 +114,35 @@ By analogy, what is implemented here is an intercept-only sub-model for the prec
 We don't have to resort to anything fancy in order to fit beta regression models; we can
 simply use [maximum likelihood](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation)
 on the full parameter vector for the model, which we define to be
-``\theta = [\beta_0, \ldots, \beta_n, \phi]``.
+``\theta = [\beta_1, \ldots, \beta_p, \phi]``.
 
 ## Fitting a model
 
 In BetaRegression.jl, the maximum likelihood estimation is carried out via
 [Fisher scoring](https://en.wikipedia.org/wiki/Scoring_algorithm) using closed-form
 expressions for the score vector and expected information matrix.
+
+The information matrix is symmetric with the following block structure:
+```math
+\left[
+    \begin{array}{ccc|c}
+        \frac{\partial^2 \ell}{\partial \beta_1^2} & \cdots &
+        \frac{\partial^2 \ell}{\partial \beta_1 \partial \beta_p} &
+        \frac{\partial^2 \ell}{\partial \beta_1 \partial \phi} \\
+        \vdots & \ddots & \vdots & \vdots \\
+        \frac{\partial^2 \ell}{\partial \beta_p \partial \beta_1} & \cdots &
+        \frac{\partial^2 \ell}{\partial \beta_p^2} &
+        \frac{\partial^2 \ell}{\partial \beta_p \partial \phi} \\
+        \hline \\
+        \frac{\partial^2 \ell}{\partial \phi \partial \beta_1} & \cdots &
+        \frac{\partial^2 \ell}{\partial \phi \partial \beta_p} &
+        \frac{\partial^2 \ell}{\partial \phi^2}
+    \end{array}
+\right]
+```
+Since ``\mu`` depends on ``\phi``, we have that
+``\mathbb{E}\left(\frac{\partial^2 \ell}{\partial \beta_i \partial \phi}\right) \neq 0``,
+so the matrix is not block diagonal.
 
 There is no canonical link function for the beta regression model in this parameterization
 in the same manner as for GLMs (anything that constrains ``\mu`` within ``(0, 1)`` will

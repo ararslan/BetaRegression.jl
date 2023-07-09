@@ -105,7 +105,7 @@ Construct a `BetaRegressionModel` object with the given model matrix `X`, respon
 `weights` and `offset`.
 Note that the returned object is not fit until `fit!` is called on it.
 
-!!! warn
+!!! warning
     Support for user-provided weights is currently incomplete; passing a value other
     than `nothing` or an empty array for `weights` will result in an error for now.
 """
@@ -164,8 +164,27 @@ StatsAPI.weights(b::BetaRegressionModel) = b.weights
 
 StatsAPI.offset(b::BetaRegressionModel) = b.offset
 
+"""
+    params(model::BetaRegressionModel)
+
+Return the vector of estimated model parameters
+``\\theta = [\\beta_1, \\ldots, \\beta_p, \\phi]``, i.e. the regression coefficients and
+precision.
+
+!!! danger
+    Mutating this array may invalidate the model object.
+
+See also: [`coef`](@ref), [`precision`](@ref)
+"""
 StatsAPI.params(b::BetaRegressionModel) = b.parameters
 
+"""
+    coef(model::BetaRegressionModel)
+
+Return a copy of the vector of regression coefficients ``\\mathbf{\\beta}``.
+
+See also: [`precision`](@ref), [`params`](@ref)
+"""
 StatsAPI.coef(b::BetaRegressionModel) = params(b)[1:(end - 1)]
 
 """
@@ -176,7 +195,7 @@ This function returns ``\\phi`` on the natural scale, _not_ on the precision lin
 This parameter is estimated alongside the regression coefficients and is included in
 coefficient tables, where it _is_ displayed on the precision link scale.
 
-See also: `coef`, `params`
+See also: [`coef`](@ref), [`params`](@ref)
 """
 Base.precision(b::BetaRegressionModel) = linkinv(precisionlink(b), last(params(b)))
 
@@ -201,13 +220,39 @@ StatsAPI.fitted(b::BetaRegressionModel) = linkinv.(Link(b), linearpredictor(b))
 
 StatsAPI.residuals(b::BetaRegressionModel) = response(b) .- fitted(b)
 
+"""
+    nobs(model::BetaRegressionModel)
+
+Return the effective number of observations used to fit the model. For weighted models,
+this is the number of nonzero weights, otherwise it's the number of elements of the
+response (or equivalently, the number of rows in the model matrix).
+"""
 StatsAPI.nobs(b::BetaRegressionModel) =
     isempty(weights(b)) ? length(response(b)) : count(>(0), weights(b))
 
+"""
+    dof(model::BetaRegressionModel)
+
+Return the number of estimated parameters in the model. For a model with ``p`` independent
+variables, this is ``p + 1``, since the precision must also be estimated.
+"""
 StatsAPI.dof(b::BetaRegressionModel) = length(params(b))
 
+"""
+    dof_residual(model::BetaRegressionModel)
+
+Return the residual degrees of freedom for the model, defined as [`nobs`](@ref) minus
+[`dof`](@ref).
+"""
 StatsAPI.dof_residual(b::BetaRegressionModel) = nobs(b) - dof(b)
 
+"""
+    r2(model::BetaRegressionModel)
+    r²(model::BetaRegressionModel)
+
+Return the Pearson correlation between the linear predictor ``\\eta`` and the
+link-transformed response ``g(y)``.
+"""
 StatsAPI.r2(b::BetaRegressionModel) = cor(linearpredictor(b), linkfun.(Link(b), response(b)))^2
 
 StatsAPI.predict(b::BetaRegressionModel) = fitted(b)
@@ -223,10 +268,32 @@ function StatsAPI.predict(b::BetaRegressionModel, newX::AbstractMatrix; offset=n
     return linkinv.(Link(b), η̂)
 end
 
+"""
+    Link(model::BetaRegressionModel)
+
+Return the link function ``g`` that links the mean ``\\mu`` to the linear predictor
+``\\eta`` by ``\\mu = g^{-1}(\\eta)``.
+"""
 GLM.Link(::BetaRegressionModel{T,L1}) where {T,L1} = L1()
 
+"""
+    precisionlink(model::BetaRegressionModel)
+
+Return the link function ``h`` that links the precision ``\\phi`` to the estimated
+constant parameter ``\\theta_{p+1}`` such that ``\\phi = h^{-1}(\\theta_{p+1})``.
+"""
 precisionlink(::BetaRegressionModel{T,L1,L2}) where {T,L1,L2} = L2()
 
+"""
+    coeftable(model::BetaRegressionModel; level=0.95)
+
+Return a table of the point estimates of the model parameters, their respective
+standard errors, ``z``-statistics, Wald ``p``-values, and confidence intervals at
+the given `level`. The precision parameter is included as the last row in the table.
+
+The object returned by this function implements the
+[Tables.jl](https://github.com/JuliaData/Tables.jl/) interface for tabular data.
+"""
 function StatsAPI.coeftable(b::BetaRegressionModel; level::Real=0.95)
     θ = params(b)
     se = stderror(b)
@@ -240,6 +307,12 @@ function StatsAPI.coeftable(b::BetaRegressionModel; level::Real=0.95)
                      push!(map(i -> "x$i", 1:(length(θ) - 1)), "(Precision)"), 4, 3)
 end
 
+"""
+    confint(model::BetaRegressionModel; level=0.95)
+
+For a model with ``p`` regression coefficients, return a ``(p + 1) \\times 2`` matrix
+of confidence intervals for the estimated coefficients and precision at the given `level`.
+"""
 function StatsAPI.confint(b::BetaRegressionModel; level::Real=0.95)
     θ = params(b)
     se = stderror(b)
@@ -284,6 +357,19 @@ function StatsAPI.loglikelihood(b::BetaRegressionModel, i::Integer)
     return ℓ
 end
 
+"""
+    devresid(model::BetaRegressionModel)
+
+Compute the signed deviance residuals of the model,
+```math
+\\mathrm{sgn}(y_i - \\hat{y}_i) \\sqrt{2 \\lvert \\ell(y_i, \\hat{\\phi}) - \\ell(\\hat{y}_i, \\hat{\\phi}) \\rvert}
+```
+where ``\\ell`` denotes the log likelihood, ``y_i`` is the ``i``th observed value of the
+response, ``\\hat{y}_i`` is the ``i``th fitted value, and ``\\hat{\\phi}`` is the estimated
+common precision parameter.
+
+See also: [`deviance`](@ref)
+"""
 function GLM.devresid(b::BetaRegressionModel)
     ϕ = precision(b)
     return map(response(b), fitted(b)) do y, μ
@@ -294,6 +380,13 @@ function GLM.devresid(b::BetaRegressionModel)
     end
 end
 
+"""
+    deviance(model::BetaRegressionModel)
+
+Compute the deviance of the model, defined as the sum of the squared deviance residuals.
+
+See also: [`devresid`](@ref)
+"""
 StatsAPI.deviance(b::BetaRegressionModel) = sum(abs2, devresid(b))
 
 # Initialization method as recommended at the end of Ferrari (2004), section 2
@@ -304,6 +397,9 @@ Initialize the given [`BetaRegressionModel`](@ref) by computing starting points 
 the parameter estimates and return the updated model object.
 The initial estimates are based on those from a linear regression model with the same
 model matrix as `b` but with `linkfun.(Link(b), response(b))` as the response.
+
+If the initial estimate of the precision is invalid (not strictly positive) then it
+is taken instead to be 1 prior to applying the precision link function.
 """
 function initialize!(b::BetaRegressionModel)
     link = Link(b)
@@ -335,6 +431,14 @@ function initialize!(b::BetaRegressionModel)
     return b
 end
 
+"""
+    score(model::BetaRegressionModel)
+
+Compute the score vector of the model, i.e. the vector of first partial derivatives
+of [`loglikelihood`](@ref) with respect to each element of [`params`](@ref).
+
+See also: [`informationmatrix`](@ref)
+"""
 function StatsAPI.score(b::BetaRegressionModel)
     X = modelmatrix(b)
     y = response(b)
@@ -433,9 +537,27 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     return Symmetric(K)
 end
 
+"""
+    informationmatrix(model::BetaRegressionModel; expected=true)
+
+Compute the information matrix of the model. By default, this is the Fisher information,
+i.e. the expected value of the matrix of second partial derivatives of
+[`loglikelihood`](@ref) with respect to each element of [`params`](@ref). Set `expected`
+to `false` to obtain the observed information.
+
+See also: [`vcov`](@ref), [`score`](@ref)
+"""
 StatsAPI.informationmatrix(b::BetaRegressionModel; expected::Bool=true) =
     🐟(b, expected, false)
 
+"""
+    vcov(model::BetaRegressionModel)
+
+Compute the variance-covariance matrix of the model, i.e. the inverse of the Fisher
+information matrix.
+
+See also: [`stderror`](@ref), [`informationmatrix`](@ref)
+"""
 StatsAPI.vcov(b::BetaRegressionModel) = 🐟(b, true, true)
 
 function checkfinite(x, iters)
@@ -505,7 +627,7 @@ is used.
 - `rtol`: Relative tolerance to use when checking for convergence. Default is the Base
   default relative tolerance for `T`.
 
-!!! note
+!!! tip
     If you experience convergence issues, you may consider trying a different link for
     the precision; `LogLink()` is a common choice. Increasing the maximum number of
     iterations may also be beneficial, especially when working with `Float32`.
@@ -524,9 +646,22 @@ end
            StatsAPI.linearpredictor, StatsAPI.offset, StatsAPI.score, StatsAPI.weights,
            precisionlink])
 
+"""
+    responsename(model::TableRegressionModel{<:BetaRegressionModel})
+
+For a `BetaRegressionModel` fit using a table and `@formula`, return a string containing
+the left hand side of the formula, i.e. the model's response.
+"""
 StatsAPI.responsename(m::TableRegressionModel{<:BetaRegressionModel}) =
     sprint(show, formula(m).lhs)
 
+"""
+    coefnames(model::TableRegressionModel{<:BetaRegressionModel})
+
+For a `BetaRegressionModel` fit using a table and `@formula`, return the names of the
+coefficients as a vector of strings. The precision term is included as the last element
+in the array and has name `"(Precision)"`.
+"""
 StatsAPI.coefnames(m::TableRegressionModel{<:BetaRegressionModel}) =
     vcat(coefnames(m.mf), "(Precision)")
 
@@ -539,12 +674,25 @@ function StatsAPI.coeftable(m::TableRegressionModel{<:BetaRegressionModel}; kwar
     return ct
 end
 
+# NOTE: We're applying a custom docstring to a method that is not directly defined,
+# which surprisingly works
+"""
+    stderror(model::BetaRegressionModel)
+
+Return the standard errors of the estimated model parameters, including both the
+regression coefficients and the precision.
+
+See also: [`vcov`](@ref)
+"""
+StatsAPI.stderror(::BetaRegressionModel)
+
 """
     dmueta(link::Link, η)
 
-Return the second derivative of `linkinv`, ``d²μ/dη²``, of the link function `link`
-evaluated at the linear predictor value `η`. A method of this function must be defined
-for a particular link function in order to compute the observed information matrix.
+Return the second derivative of `linkinv`, ``\\frac{\\partial^2 \\mu}{\\partial \\eta^2}``,
+of the link function `link` evaluated at the linear predictor value `η`. A method of this
+function must be defined for a particular link function in order to compute the observed
+information matrix.
 """
 function dmueta end
 
