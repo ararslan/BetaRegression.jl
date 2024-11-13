@@ -1,7 +1,7 @@
 # BetaRegression.jl
 
 [![Build Status](https://github.com/ararslan/BetaRegression.jl/workflows/CI/badge.svg)](https://github.com/ararslan/BetaRegression.jl/actions?query=workflow%3ACI+branch%3Amain)
-[![Code Coverage](http://codecov.io/github/ararslan/BetaRegression.jl/coverage.svg?branch=main)](http://codecov.io/github/ararslan/BetaRegression.jl?branch=main)
+[![Code Coverage](https://codecov.io/github/ararslan/BetaRegression.jl/branch/main/graph/badge.svg?token=CAR3E4IA76)](https://codecov.io/github/ararslan/BetaRegression.jl)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://ararslan.github.io/BetaRegression.jl/stable)
 
 This package provides regression modeling functionality for continuous,
