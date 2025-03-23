@@ -408,7 +408,7 @@ function initialize!(b::BetaRegressionModel)
     # We have to use the constructors directly because `LinearModel` supports an
     # offset but it isn't exposed by `lm`
     model = LinearModel(LmResp{typeof(y)}(zero(y), offset(b), weights(b), y),
-                        cholpred(X, true))
+                        cholpred(X, true), nothing)
     fit!(model)
     β = coef(model)
     η = fitted(model)
@@ -450,7 +450,7 @@ function StatsAPI.score(b::BetaRegressionModel)
     Tr = copy(η)
     @inbounds for i in eachindex(y, η)
         yᵢ = y[i]
-        μᵢ, omμᵢ, dμdη = inverselink(link, η[i])
+        μᵢ, dμdη, omμᵢ = inverselink(link, η[i])
         ψp = digamma(ϕ * μᵢ)
         ψq = digamma(ϕ * omμᵢ)
         Δ = logit(yᵢ) - ψp + ψq   # logit(yᵢ) - 𝔼(logit(yᵢ))
@@ -496,7 +496,7 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     γ = zero(ϕ)
     for i in eachindex(y, η, w)
         ηᵢ = η[i]
-        μᵢ, omμᵢ, dμdη = inverselink(link, ηᵢ)
+        μᵢ, dμdη, omμᵢ = inverselink(link, ηᵢ)
         p = μᵢ * ϕ
         q = omμᵢ * ϕ
         ψ′p = trigamma(p)
@@ -701,7 +701,7 @@ dmueta(link::CauchitLink, η) = -2π * η * mueta(link, η)^2
 dmueta(link::CloglogLink, η) = -expm1(η) * mueta(link, η)
 
 function dmueta(link::LogitLink, η)
-    μ, _, dμdη = inverselink(link, η)
+    μ, dμdη, _ = inverselink(link, η)
     return dμdη * (1 - 2μ)
 end
 
