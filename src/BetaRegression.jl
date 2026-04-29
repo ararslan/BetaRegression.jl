@@ -142,7 +142,7 @@ function BetaRegressionModel(X::AbstractMatrix, y::AbstractVector,
                                                               offset, parameters, η)
 end
 
-function Base.show(io::IO, b::BetaRegressionModel{T,L1,L2}) where {T,L1,L2}
+function Base.show(io::IO, m::MIME"text/plain", b::BetaRegressionModel{T,L1,L2}) where {T,L1,L2}
     print(io, """
           BetaRegressionModel{$T}
               $(nobs(b)) observations
@@ -152,9 +152,15 @@ function Base.show(io::IO, b::BetaRegressionModel{T,L1,L2}) where {T,L1,L2}
 
           Coefficients:
           """)
-    show(io, coeftable(b))
+    show(io, m, coeftable(b))
     return nothing
 end
+
+Base.show(io::IO, m::MIME"text/plain", b::TableRegressionModel{<:BetaRegressionModel}) =
+    show(io, m, b.model)
+
+Base.show(io::IO, b::Union{BetaRegressionModel,TableRegressionModel{<:BetaRegressionModel}}) =
+    show(io, MIME"text/plain"(), b)
 
 StatsAPI.response(b::BetaRegressionModel) = b.y
 
@@ -450,7 +456,7 @@ function StatsAPI.score(b::BetaRegressionModel)
     Tr = copy(η)
     @inbounds for i in eachindex(y, η)
         yᵢ = y[i]
-        μᵢ, omμᵢ, dμdη = inverselink(link, η[i])
+        μᵢ, dμdη, omμᵢ = inverselink(link, η[i])
         ψp = digamma(ϕ * μᵢ)
         ψq = digamma(ϕ * omμᵢ)
         Δ = logit(yᵢ) - ψp + ψq   # logit(yᵢ) - 𝔼(logit(yᵢ))
@@ -496,7 +502,7 @@ function 🐟(b::BetaRegressionModel, expected::Bool, inverse::Bool)
     γ = zero(ϕ)
     for i in eachindex(y, η, w)
         ηᵢ = η[i]
-        μᵢ, omμᵢ, dμdη = inverselink(link, ηᵢ)
+        μᵢ, dμdη, omμᵢ = inverselink(link, ηᵢ)
         p = μᵢ * ϕ
         q = omμᵢ * ϕ
         ψ′p = trigamma(p)
@@ -670,6 +676,16 @@ StatsAPI.coefnames(m::TableRegressionModel{<:BetaRegressionModel}) =
 # coefficients
 function StatsAPI.coeftable(m::TableRegressionModel{<:BetaRegressionModel}; kwargs...)
     ct = coeftable(m.model; kwargs...)
+    # NOTE: If/when StatsBase PR #987 is merged and released, this will probably need to
+    # be something like:
+    # ```
+    # xs = coefnames(m)
+    # resize!(ct.rownms, length(xs))
+    # copyto!(ct.rownms, xs)
+    # ```
+    # However, this may not work if the element type of the `rownms` field (which is only
+    # typed as `Vector` in the `CoefTable` definition) doesn't support `convert`ing from
+    # a `String`. So just set the field while we still can.
     ct.rownms = coefnames(m)
     return ct
 end
@@ -701,7 +717,7 @@ dmueta(link::CauchitLink, η) = -2π * η * mueta(link, η)^2
 dmueta(link::CloglogLink, η) = -expm1(η) * mueta(link, η)
 
 function dmueta(link::LogitLink, η)
-    μ, _, dμdη = inverselink(link, η)
+    μ, dμdη, _ = inverselink(link, η)
     return dμdη * (1 - 2μ)
 end
 

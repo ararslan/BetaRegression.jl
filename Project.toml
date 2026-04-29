@@ -1,6 +1,6 @@
 name = "BetaRegression"
 uuid = "2339b9c3-daaf-4eaa-90d5-e8471159c344"
-version = "0.1.4"
+version = "0.1.5"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -15,13 +15,13 @@ StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
 
 [compat]
 Distributions = "0.25"
-GLM = "1"
+GLM = "1.9.4"
 LinearAlgebra = "1"
 LogExpFunctions = "0.3"
 SpecialFunctions = "1, 2"
 Statistics = "1"
 StatsAPI = "1.5"
-StatsBase = "0.33, 0.34"
+StatsBase = "0.34.10"
 StatsModels = "0.6, 0.7"
 julia = "1.6"
 
